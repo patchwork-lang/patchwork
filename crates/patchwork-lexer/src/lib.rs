@@ -120,6 +120,35 @@ where
         // Handle state transitions BEFORE yielding token
         // This ensures the mode is set correctly before the next token is read
         match rule {
+            Rule::StringStart => {
+                // Entering a string - transition to InString mode
+                let span = lexer.span();
+                let token = PatchworkToken::new(rule, Some(span));
+                lexer.yield_token(token);
+
+                context.push_mode(Mode::InString);
+                lexer.begin(Mode::InString);
+                context.last_token = None;
+                return Ok(());
+            }
+            Rule::StringEnd => {
+                // Exiting a string - pop back to previous mode
+                let span = lexer.span();
+                let token = PatchworkToken::new(rule, Some(span));
+                lexer.yield_token(token);
+
+                if let Some(_) = context.pop_mode() {
+                    // Return to the mode before the string
+                    if let Some(&parent_mode) = context.mode_stack.last() {
+                        lexer.begin(parent_mode);
+                    } else {
+                        // Back to Code mode
+                        lexer.begin(Mode::Code);
+                    }
+                }
+                context.last_token = None;
+                return Ok(());
+            }
             Rule::Think | Rule::Ask => {
                 // When we see think/ask, record it. On next LBrace, transition to Prompt
                 context.last_token = Some(rule);
@@ -339,13 +368,47 @@ mod tests {
     }
 
     #[test]
-    fn test_strings() -> Result<(), ParlexError> {
-        let tokens = collect_tokens(r#""hello" "world" "with \"quotes\"" """#)?;
+    fn test_strings_chunked() -> Result<(), ParlexError> {
+        let tokens = collect_tokens(r#""hello""#)?;
         assert_eq!(tokens, vec![
-            Rule::String, Rule::Whitespace,
-            Rule::String, Rule::Whitespace,
-            Rule::String, Rule::Whitespace,
-            Rule::String,
+            Rule::StringStart,
+            Rule::StringText,
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_empty() -> Result<(), ParlexError> {
+        let tokens = collect_tokens(r#""""#)?;
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_with_escapes() -> Result<(), ParlexError> {
+        let tokens = collect_tokens(r#""with \"quotes\"""#)?;
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,  // "with \"quotes\""
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_escape_sequences() -> Result<(), ParlexError> {
+        let tokens = collect_tokens(r#""Hello\nworld\t!""#)?;
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,  // "Hello\nworld\t!"
+            Rule::StringEnd,
             Rule::End
         ]);
         Ok(())
@@ -468,7 +531,8 @@ if x > 10 {
         assert!(tokens.contains(&Rule::Identifier));
         assert!(tokens.contains(&Rule::Assign));
         assert!(tokens.contains(&Rule::Number));
-        assert!(tokens.contains(&Rule::String));
+        assert!(tokens.contains(&Rule::StringStart));
+        assert!(tokens.contains(&Rule::StringEnd));
         assert!(tokens.contains(&Rule::If));
         assert!(tokens.contains(&Rule::Gt));
         assert!(tokens.contains(&Rule::LBrace));
@@ -491,7 +555,7 @@ var session_id = "historian-${timestamp}""#;
         assert!(tokens.contains(&Rule::Var));
         assert!(tokens.contains(&Rule::Identifier));
         assert!(tokens.contains(&Rule::Assign));
-        assert!(tokens.contains(&Rule::String));
+        assert!(tokens.contains(&Rule::StringStart));
 
         Ok(())
     }
@@ -702,7 +766,7 @@ var session_id = "historian-${timestamp}""#;
         assert!(tokens.contains(&Rule::Skill));
         assert!(tokens.contains(&Rule::Var));
         assert!(tokens.contains(&Rule::BashSubst));
-        assert!(tokens.contains(&Rule::String));
+        assert!(tokens.contains(&Rule::StringStart));
         assert!(tokens.contains(&Rule::Await));
         assert!(tokens.contains(&Rule::Task));
         assert!(tokens.contains(&Rule::End));

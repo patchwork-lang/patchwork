@@ -6,6 +6,11 @@ ID        = [A-Za-z_][A-Za-z0-9_]*
 Whitespace: <Code,Prompt> {{WS}}
 Newline: <Code,Prompt> {{NL}}
 
+StringStart: <Code> \"
+StringEnd: <InString> \"
+StringText: <InString> ([^\"\$\\]|\\.)+
+Dollar: <InString> \$
+
 Think: <Code> think
 Ask: <Code> ask
 Do: <Prompt> do
@@ -65,7 +70,6 @@ Assign: <Code> =
 Pipe: <Code> \|
 Ampersand: <Code> &
 Dot: <Code> \.
-String: <Code> \"([^\"\\\n]|\\.)*\"
 
 BashSubst: <Code> \$\([^\)]*\)
 
