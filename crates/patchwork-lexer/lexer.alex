@@ -1,0 +1,10 @@
+WS        = [ \t\f]+
+NL        = \r?\n
+ID        = [A-Za-z_][A-Za-z0-9_]*
+
+Whitespace: <Code> {{WS}}
+Newline: <Code> {{NL}}
+Identifier: <Code> {{ID}}
+LBrace: <Code> \{
+RBrace: <Code> \}
+ErrorAny: <*> .

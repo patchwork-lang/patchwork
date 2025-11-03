@@ -1,0 +1,115 @@
+import ./{analyst, narrator}
+import std.log
+
+# Creates individual git commits by processing requests from the narrator.
+#
+# @arg session_id 
+# @arg work_dir 
+#
+# @color cyan
+task scribe(session_id, work_dir) {
+    log(session_id, "SCRIBE", "Waiting for build config from analyst")
+
+    var {
+        type: "build_config",
+        build_command: string
+    } = self.receive(10800000)  // 3 hours
+
+    log(session_id, "SCRIBE", "Received build config: ${build_command}")
+
+    while(true) {
+        var instruction = self.receive(10800000) // 3 hours
+
+        if instruction.type = "done" {
+            log(session_id, "SCRIBE", "Received done signal from narrator, exiting")
+            succeed
+        }
+
+        var {
+            commit_num: int,
+            description: string
+        } = message
+
+        log(session_id, "SCRIBE", "Processing request for commit ${commit_num}")
+
+        think {
+            1. **Read the master diff** (use Read tool):
+            - Read `${work_dir}/master.diff`
+            - Identify which changes belong to this commit based on the description
+
+            2. **Analyze commit size**:
+            - If the commit would include >15 files or >500 lines, use the Ask tool to ask the user how to split it
+            - Otherwise, proceed with creating the commit
+
+            3. **Validate the build**:
+            - The build command is ${build_command}
+            - If the build command is null, skip this build validation step.
+            - Otherwise:
+            do {
+                for var i in 1...3 {
+                    log(session_id, "SCRIBE", "Running build validation (attempt ${i})")
+
+                    eval "${build_command}" 2>&1 | tee "${work_dir}/build-output.log"
+                    if $? = 0 {
+                        log(session_id, "SCRIBE", "Build passed on attempt ${i}")
+                        break
+                    }
+
+                    log(session_id, "SCRIBE", "Build failed on attempt ${i}, analyzing errors")
+
+                    if i = 3 {
+                        var suggestion = ask {
+                            The build is failing after 3 attempts to fix it automatically.
+
+                            Build command: ${build_command}
+
+                            Latest error output:
+                            [paste relevant error messages from build-output.log]
+
+                            I've tried applying these changes:
+                            [describe what you applied in each attempt]
+
+                            What should I do to make the build pass?
+                        }
+
+                        think { Apply ${suggestion} }
+
+                        eval ${build_command} 2>&1 | tee "${work_dir}/build-output.log"
+                        if $? != 0 {
+                            log(session_id, "SCRIBE", "User suggestion failed to fix build")
+                            narrator.send({
+                                status: "error",
+                                error: "User suggestion failed to fix build (see ${work_dir}/build-output.log)"
+                            })
+                            fail
+                        }
+                    } else {
+                        think {
+                            - Use **Read tool** to examine `${work_dir}/build-output.log` for errors
+                            - Use **Read tool** to examine `${work_dir}/master.diff` for potential fixes
+                            - Identify missing changes (imports, types, fields, etc.)
+                            - Apply fixes using **Write/Edit** tools
+                            - Amend: `git add -A && git commit --amend --no-edit`
+                        }
+                    }
+                }
+            }
+
+            4. **Create the commit**:
+            - Use Write/Edit tools to apply the changes, OR
+            - Use `git apply` with extracted diff hunks
+            - Then commit:
+            {
+                git commit -m "${description}
+
+                🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+                Co-Authored-By: Claude <noreply@anthropic.com>"
+
+                var hash = $(git rev-parse HEAD)
+                var files_changed = $(git diff --name-only HEAD~1 HEAD | wc -l | tr -d ' ')
+                log(session_id, "SCRIBE", "Created commit ${hash}")
+            }
+        }
+    }
+}

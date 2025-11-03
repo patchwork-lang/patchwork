@@ -1,0 +1,150 @@
+import std.log
+
+# Analyzes the git repository, creates a commit plan, determines build configuration, and sends
+# instructions to the narrator and scribe agents.
+#
+# @arg session_id 
+# @arg work_dir 
+# @arg changeset_description
+#
+# @color purple
+task analyst(session_id, work_dir, changeset_description) {
+    mkdir -p "${work_dir}/narrator"
+    mkdir -p "${work_dir}/analyst"
+
+    log(session_id, "ANALYST", "Starting analysis")
+
+    # Check for clean working tree
+    if ! git diff_index --quiet HEAD -- {
+      echo "error" > "${work_dir}/analyst/status"
+      log(session_id, "ANALYST", "ERROR: Working tree not clean")
+      fail
+    }
+
+    var branch=$(git rev_parse --abbrev_ref HEAD)
+
+    # Check for detached HEAD
+    if branch = "HEAD" {
+        echo "error" > "${work_dir}/analyst/status"
+        log(session_id, "ANALYST", "ERROR: Detached HEAD")
+        fail
+    }
+
+    # Get base commit and create clean branch
+    base_commit=$(git merge_base HEAD origin/main 2>/dev/null || git merge_base HEAD main)
+    timestamp=$(echo "$session_id" | sed 's/historian-//')
+    clean_branch="${branch}-${timestamp}-clean"
+
+    # Create master diff
+    git diff $base_commit..HEAD > "${work_dir}/master.diff"
+
+    # Create clean branch
+    git checkout -b "${clean_branch}" "${base_commit}"
+
+    log(session_id, "ANALYST", "Created clean branch: ${clean_branch}")
+
+    var build_command = think {
+        Figure out how to run a lightweight build for this project (type checking, not tests):
+
+        **Common patterns to look for:**
+        - Rust: `cargo check`
+        - TypeScript: `tsc --noEmit` or `npm run typecheck`
+        - Python: `mypy .` or `pyright`
+        - Go: `go build ./...`
+        - Java: `mvn compile` or `gradle compileJava`
+
+        **Check for:**
+        1. Build files (Cargo.toml, package.json, pyproject.toml, go.mod, pom.xml, build.gradle)
+        2. Build scripts in package.json or Makefile
+        3. CI configuration files (.github/workflows, .gitlab_ci.yml)
+    } || ask {
+        I'm analyzing your project to determine how to validate commits with a lightweight build.
+
+        I found [files/configuration], but I'm not sure which command to use.
+
+        What command should I run to check the project builds correctly (without running tests)?
+
+        Examples:
+        - cargo check
+        - tsc --noEmit
+        - make typecheck
+        - [no build needed]
+    }
+
+    var commit_plan = think {
+        Read `${work_dir}/master.diff` and analyze the changes.
+
+        Based on the diff and the changeset description, create a commit plan that:
+        - Breaks changes into 5-15 logical commits
+        - Follows a progression (infrastructure → core → features → polish → tests/docs)
+        - Each commit is independently reviewable
+        - Tells a clear story
+
+        **IMPORTANT**: If the master.diff contains test or documentation changes, add a final commit to the plan that includes them. For example:
+        - "Add tests for user authentication"
+        - "Add documentation for OAuth integration"
+        - "Add tests and update documentation"
+
+        Create a detailed plan as an array of commit objects:
+        ```javascript
+        [
+            {num: 1, description: "Add user authentication models"},
+            {num: 2, description: "Implement OAuth token validation"},
+            // ... feature commits ...
+            {num: N, description: "Add tests and update documentation"}  // If tests/docs present
+        ]
+        ```
+    }
+
+    var approval = ask {
+        I've analyzed the changeset and created a commit plan:
+
+        1. [First commit description]
+        2. [Second commit description]
+        ...
+        N. [Last commit description]
+
+        Would you like to proceed with this plan?
+    }
+
+    if !approval {
+        git checkout "${branch}"
+        git branch -D "${clean_branch}"
+        echo "error" > "${work_dir}/analyst/status"
+        log(session_id, "ANALYST", "User cancelled")
+        fail
+    }
+
+    narrator.send(session_id, {
+        type: "commit_plan",
+        branch: branch,
+        clean_branch: clean_branch,
+        base_commit: base_commit,
+        timestamp: timestamp,
+        commits: commit_plan  # Array of {num, description}
+    })
+
+    log(session_id, "ANALYST", "Sent commit plan to narrator")
+
+    scribe.send(session_id, {
+        type: "build_config",
+        build_command # e.g., "cargo check" or null
+    })
+
+    log(session_id, "ANALYST", "Sent build config to scribe")
+
+    cat("${work_dir}/state.json", {
+        session_id,
+        timestamp,
+        original_branch: branch,
+        clean_branch,
+        base_commit,
+        work_dir,
+        build_command,
+        total_commits: commit_plan.length
+    })
+
+    echo "done" > "${work_dir}/analyst/status"
+
+    log(session_id, "ANALYST", "Analysis complete, exiting")
+}

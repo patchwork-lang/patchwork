@@ -1,0 +1,28 @@
+import ./{analyst, narrator, scribe}
+
+# Rewrites the current git branch into clean, logical commits by orchestrating three tasks.
+#
+# @arg changeset_description Text describing the changeset (e.g., pull request)
+skill rewriting_git_branch(changeset_description) {
+    var timestamp = $(date +%Y%m%d-%H%M%S)
+    var session_id = "historian-${timestamp}"
+    var work_dir = "/tmp/${session_id}"
+
+    mkdir -p work_dir
+
+    var current_branch = $(git rev_parse --abbrev_ref HEAD)
+
+    cat({
+        session_id,
+        timestamp,
+        original: current_branch,
+        work_dir
+    }) > "${work_dir}/state.json"
+
+    echo "Created session: ${session_id}"
+    echo "Work directory: ${work_dir}"
+
+    await task analyst(session_id, work_dir, changeset_description),
+               narrator(session_id, work_dir),
+               scribe(session_id, work_dir)
+}

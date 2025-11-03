@@ -1,0 +1,12 @@
+[package]
+name = "patchwork-lexer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+parlex = "0.3.0"
+include_bytes_aligned = "0.1"
+try-next = "0.4"
+
+[build-dependencies]
+parlex-gen = "0.3.0"
