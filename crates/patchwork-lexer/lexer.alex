@@ -9,7 +9,7 @@ Newline: <Code,Prompt> {{NL}}
 StringStart: <Code> \"
 StringEnd: <InString> \"
 StringText: <InString> ([^\"\$\\]|\\.)+
-Dollar: <InString> \$
+Dollar: <Code,InString> \$
 
 Think: <Code> think
 Ask: <Code> ask
@@ -70,8 +70,6 @@ Assign: <Code> =
 Pipe: <Code> \|
 Ampersand: <Code> &
 Dot: <Code> \.
-
-BashSubst: <Code> \$\([^\)]*\)
 
 Identifier: <Code> {{ID}}
 
