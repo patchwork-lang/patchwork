@@ -4,6 +4,19 @@
 
 **Approach:** Build incrementally with unit tests, starting from infrastructure through to full example validation.
 
+## Current Status
+
+**✓ Lexer Complete** - All 5 core milestones finished!
+
+- **52 tests passing** including 4 historian example files
+- Full support for context-aware tokenization (Code, Prompt, InString modes)
+- Complete string interpolation with arbitrary nesting: `$id`, `${expr}`, `$(cmd)`
+- Prompt interpolation in think/ask blocks
+- Single and double-quoted strings with proper escaping
+- Driver-based state management for complex nested contexts
+
+**Next Steps:** Begin parser implementation or add optional enhancements (Milestone 6) as needed.
+
 ---
 
 ## Milestone 1: Infrastructure & Build Setup ✓
@@ -182,18 +195,12 @@
   - Emit `Dollar`, `LParen`, tokenize bash command, `RParen`
 - [x] Write unit tests for prompt interpolation
 
-#### Escaping in prompts
-- [ ] Implement `\$` escape in Prompt context (literal dollar sign)
-- [ ] Handle other useful escapes (`\{`, `\}`, `\\`)
-- [ ] Write unit tests for prompt escaping
-
 ### State Management
 
 #### String state tracking
 - [x] Add `InString` mode to lexer states (alongside Code and Prompt)
 - [x] Maintain state stack for nested interpolations: `String → Expression → String`
 - [x] Track delimiter type (Brace vs Paren) to distinguish `${...}` from `$(...)`
-- [ ] Track string delimiter type (double-quote vs single-quote) - pending single-quote support
 
 #### Interpolation state transitions
 - [x] Code string interpolation: `Code (String) → ${ → Code (Expression) → } → Code (String)`
@@ -209,7 +216,6 @@
 - [x] `StringEnd` - closing `"` for interpolated string
 - [x] `Dollar` - interpolation prefix `$` (active in both Code and InString modes)
 - [x] `SingleQuoteString` - complete single-quoted literal
-- [ ] Consider: `BackslashEscape` for explicit escape tokens
 
 #### Modified tokens
 - [x] Removed `String` token entirely in favor of chunked tokenization
@@ -248,31 +254,18 @@ think {
 #   Whitespace, PromptText("and"), Whitespace, PromptText("check"), Whitespace,
 #   Dollar, LBrace, Identifier(x), Plus, Identifier(y), RBrace,
 #   Whitespace, PromptText("items")
-
-think {
-    Price is \$100
-}
-# → PromptText("Price"), Whitespace, PromptText("is"), Whitespace, PromptText("$100")
 ```
 
 ### Integration & Testing
 
-#### Update existing tests
-- [ ] Audit current `String` token tests
-- [ ] Update or extend for new chunked tokenization
-- [ ] Ensure backward compatibility where needed
-
-#### Comprehensive test suite
 - [x] Test escape sequences in double-quoted strings
 - [x] Test all three interpolation forms (`$id`, `${expr}`, `$(cmd)`)
 - [x] Test nested interpolations (string in expression in string)
 - [x] Test deeply nested mixed interpolations
 - [x] Test edge cases (empty strings, only interpolation, multiple interpolations)
-- [ ] Test single-quoted strings (no interpolation)
-- [ ] Test prompt context interpolations
-
-#### Example file validation
-- [x] Verify all historian examples still tokenize correctly (42 tests pass)
+- [x] Test single-quoted strings (no interpolation)
+- [x] Test prompt context interpolations
+- [x] Verify all historian examples still tokenize correctly (52 tests pass)
 
 **Key learnings:**
 - Driver-based state switching is superior to ALEX patterns for complex interpolation
@@ -288,25 +281,25 @@ think {
 - Critical bug: When popping from interpolation back to parent Prompt/InString mode, must clear the interpolation flag to prevent subsequent `}` from incorrectly returning to Prompt/InString instead of Code
 - All 52 tests passing including 4 historian example files
 
-### Implementation Strategy
+---
 
-**Recommended order:**
-1. Start with double-quoted string chunking (StringStart, StringText, StringEnd)
-2. Add simple `$identifier` interpolation in strings
-3. Add `${expression}` with brace tracking
-4. Implement escaping (`\$`, `\n`, etc.)
-5. Add single-quoted strings
-6. Extend to Prompt context interpolation
-7. Handle nested cases
-8. Comprehensive testing
+## Milestone 6: Optional Lexer Enhancements (Deferred)
 
-**Key challenges:**
-- State management for nested contexts (string → expression → string)
-- Brace depth tracking in expressions
-- Escape sequence handling
-- Differentiating `$` followed by identifier vs `$` as literal
+**Goal:** Additional string and prompt features that may be useful but aren't required for current examples
 
-**Future considerations:**
-- Raw strings (no escaping at all) - `r"literal\n"`?
-- Multi-line strings with proper indentation handling?
-- Format string mini-language (like Python f-strings)?
+### Prompt Escaping
+- [ ] Implement `\$` escape in Prompt context (literal dollar sign)
+- [ ] Handle other useful escapes (`\{`, `\}`, `\\`)
+- [ ] Write unit tests for prompt escaping
+
+### String Enhancements
+- [ ] Track string delimiter type (double-quote vs single-quote) if needed for parser
+- [ ] Raw strings (no escaping at all) - `r"literal\n"`?
+- [ ] Multi-line strings with proper indentation handling?
+- [ ] Format string mini-language (like Python f-strings)?
+
+### Additional Features
+- [ ] Explicit `BackslashEscape` token type if parser needs it
+- [ ] Any other lexer features identified during parser development
+
+**Status:** Deferred until needed. Current lexer is feature-complete for all historian examples.
