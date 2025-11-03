@@ -6,20 +6,20 @@
 
 ---
 
-## Milestone 1: Infrastructure & Build Setup
+## Milestone 1: Infrastructure & Build Setup ✓
 
 **Goal:** Get parlex-gen integrated and compiling
 
 ### Build infrastructure
-- [ ] Create `crates/patchwork-lexer/lexer.x` with minimal ALEX specification
-- [ ] Set up `build.rs` to invoke parlex-gen during cargo build
-- [ ] Add parlex-gen dependency to Cargo.toml
-- [ ] Verify `cargo build` successfully generates lexer code
+- [x] Create `crates/patchwork-lexer/lexer.x` with minimal ALEX specification
+- [x] Set up `build.rs` to invoke parlex-gen during cargo build
+- [x] Add parlex-gen dependency to Cargo.toml
+- [x] Verify `cargo build` successfully generates lexer code
 
 ### Basic project structure
-- [ ] Create `src/lib.rs` with public lexer interface
-- [ ] Create `tests/` directory for unit tests
-- [ ] Write initial smoke test that creates a lexer and tokenizes empty input
+- [x] Create `src/lib.rs` with public lexer interface
+- [x] Create `tests/` directory for unit tests
+- [x] Write initial smoke test that creates a lexer and tokenizes empty input
 
 ---
 
