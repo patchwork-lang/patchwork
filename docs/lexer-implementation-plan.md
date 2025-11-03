@@ -67,35 +67,42 @@
 
 ---
 
-## Milestone 3: State Transitions & Prompt Handling
+## Milestone 3: State Transitions & Prompt Handling ✓
 
 **Goal:** Implement context-aware lexing with state stack for think/ask/do operators
 
 ### State infrastructure
-- [ ] Define Code and Prompt lexer states in ALEX spec
-- [ ] Implement state stack mechanism for tracking nested contexts
-- [ ] Implement brace depth tracking
+- [x] Define Code and Prompt lexer states in ALEX spec
+- [x] Implement state stack mechanism for tracking nested contexts
+- [x] Implement brace depth tracking
 
 ### Prompt operator transitions
-- [ ] Implement `think` keyword that transitions Code → Prompt
-- [ ] Implement `ask` keyword that transitions Code → Prompt
-- [ ] Write unit tests for simple think/ask blocks
+- [x] Implement `think` keyword that transitions Code → Prompt
+- [x] Implement `ask` keyword that transitions Code → Prompt
+- [x] Write unit tests for simple think/ask blocks
 
 ### Code operator transitions
-- [ ] Implement `do` keyword with lookahead for `{` that transitions Prompt → Code
-- [ ] Ensure `do` as identifier works in Code state
-- [ ] Write unit tests for do transitions
+- [x] Implement `do` keyword with lookahead for `{` that transitions Prompt → Code
+- [x] Ensure `do` as identifier works in Code state
+- [x] Write unit tests for do transitions
 
 ### Prompt text handling
-- [ ] Implement PromptText token (captures text in Prompt state)
-- [ ] Handle braces within prompt text
-- [ ] Handle `do` without `{` as regular prompt text
-- [ ] Write unit tests for prompt text edge cases
+- [x] Implement PromptText token (captures text in Prompt state)
+- [x] Handle braces within prompt text
+- [x] Handle `do` without `{` as regular prompt text (emits Do token, no transition)
+- [x] Write unit tests for prompt text edge cases
 
 ### Nested context handling
-- [ ] Test simple nesting: `think { ... do { ... } }`
-- [ ] Test complex nesting: `think { ... do { ... think { ... } } }`
-- [ ] Write unit tests for multiple levels of nesting
+- [x] Test simple nesting: `think { ... do { ... } }`
+- [x] Test complex nesting: `think { ... do { ... think { ... } } }`
+- [x] Write unit tests for multiple levels of nesting
+
+**Key learnings:**
+- ALEX uses longest-match semantics, not first-match
+- PromptText pattern `[^{}]+` was too greedy - changed to `[^{}\s]+` to allow keyword recognition
+- Whitespace tokens should not clear `last_token` state tracking
+- State transitions must occur after yielding the token to ensure correct mode for next token
+- PromptText now tokenizes word-by-word with separate Whitespace tokens
 
 ---
 

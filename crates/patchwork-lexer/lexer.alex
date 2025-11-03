@@ -3,8 +3,12 @@ NL        = \r?\n
 DIGIT     = [0-9]
 ID        = [A-Za-z_][A-Za-z0-9_]*
 
-Whitespace: <Code> {{WS}}
-Newline: <Code> {{NL}}
+Whitespace: <Code,Prompt> {{WS}}
+Newline: <Code,Prompt> {{NL}}
+
+Think: <Code> think
+Ask: <Code> ask
+Do: <Prompt> do
 
 Import: <Code> import
 From: <Code> from
@@ -36,8 +40,8 @@ Gte: <Code> >=
 AndAnd: <Code> &&
 OrOr: <Code> \|\|
 
-LBrace: <Code> \{
-RBrace: <Code> \}
+LBrace: <Code,Prompt> \{
+RBrace: <Code,Prompt> \}
 LParen: <Code> \(
 RParen: <Code> \)
 LBracket: <Code> \[
@@ -66,5 +70,7 @@ String: <Code> \"([^\"\\\n]|\\.)*\"
 Identifier: <Code> {{ID}}
 
 Comment: <Code> # [^\n]*
+
+PromptText: <Prompt> [^{}\s]+
 
 ErrorAny: <*> .

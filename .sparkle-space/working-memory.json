@@ -1,12 +1,16 @@
 {
   "workspace": "/Users/dherman/Code/patchwork",
   "project": "patchwork - hybrid programming language (deterministic code + AI prompting)",
-  "current_focus": "Implementing context-aware lexer for patchwork language - ready to start Milestone 1",
+  "current_focus": "Lexer implementation - Milestone 1 complete, ready for Milestone 2",
   "achievements": [
-    "Created comprehensive implementation plan at docs/lexer-implementation-plan.md",
-    "Defined 4 milestones: Infrastructure → Code Tokens → State Transitions → Example Validation",
-    "Broke down into 45 concrete tasks with unit testing throughout",
-    "Established plan format constraints (flat checklists, summary headings per group)"
+    "Completed Milestone 1: Infrastructure & Build Setup",
+    "Successfully integrated parlex-gen ALEX lexer generator",
+    "Implemented PatchworkToken (parlex::Token trait)",
+    "Implemented PatchworkLexerDriver with action method",
+    "Created PatchworkLexer wrapper and lex_str() helper",
+    "Wrote and passed smoke test (empty input tokenization)",
+    "Updated implementation plan with completed tasks",
+    "Committed milestone completion to git"
   ],
   "key_decisions": {
     "prompt_text_granularity": "Single PromptText token initially (may refine later if examples require)",
@@ -14,21 +18,38 @@
     "validation_approach": "Minimal in lexer, leave semantic checks to parser",
     "do_operator": "Only triggers state transition when followed by { (with optional whitespace)",
     "testing_strategy": "Unit tests all along the way, not just at the end",
-    "milestone_granularity": "Current breakdown is good starting point, can revise as we go"
+    "milestone_granularity": "Current breakdown is good starting point, can revise as we go",
+    "lexer_driver_pattern": "Use PhantomData to parameterize driver over input type I",
+    "input_wrapper": "Use IterInput to wrap byte iterators as TryNextWithContext",
+    "git_workflow": "After each milestone: update plan document, then commit"
   },
   "next_steps": [
-    "Begin Milestone 1: Infrastructure & Build Setup",
-    "Create lexer.x with minimal ALEX specification",
-    "Set up build.rs to invoke parlex-gen",
-    "Write initial smoke test"
+    "Begin Milestone 2: Code State Tokens",
+    "Implement keywords and identifiers in lexer.alex",
+    "Add literals (strings, numbers, booleans)",
+    "Add operators and punctuation",
+    "Implement comments and string interpolation"
   ],
-  "collaboration_state": "Smooth progression from design → planning. David provided clear constraints for plan document format. Ready to shift into implementation mode.",
+  "collaboration_state": "Strong momentum! Milestone 1 felt challenging at first (parlex API complexity) but we worked through it systematically. Discovered useful pattern for milestone workflow. Meta moment established clear practice.",
+  "key_insights": {
+    "parlex_pattern": "Study arena-terms example was crucial - showed proper trait implementation pattern",
+    "alex_syntax": "ALEX spec format: no // comments, macro definitions with {{NAME}}, state-based rules",
+    "trait_constraints": "Input must be TryNextWithContext with Item=u8, Error: Display + 'static",
+    "token_emission": "Use lexer.yield_token() not emit_token() in LexerDriver::action"
+  },
+  "critical_awareness": [
+    "ALEX files don't support // comments - keep specs comment-free",
+    "Can't use &[u8] directly - must wrap with IterInput",
+    "Generated lexer code goes to OUT_DIR, included via concat! macro",
+    "Build chain: lexer.alex → parlex-gen (build.rs) → lexer.rs → included in lib.rs"
+  ],
   "context": {
     "inspiration": "Blog post at dherman.dev/notes/coding-in-english/ - LLMs good at abstraction, bad at control flow",
     "syntax_style": "JS/bash hybrid with think/ask (prompts) and do (code) operators",
     "lexer_states": "Code (default) and Prompt, with state stack for nesting",
     "tooling": "Rust cargo workspace, parlex-gen for lexer generation",
-    "design_doc": "docs/lexer-design.md (previous session)",
-    "implementation_plan": "docs/lexer-implementation-plan.md (this session)"
+    "design_doc": "docs/lexer-design.md",
+    "implementation_plan": "docs/lexer-implementation-plan.md",
+    "completed_milestones": ["Milestone 1: Infrastructure & Build Setup"]
   }
 }
