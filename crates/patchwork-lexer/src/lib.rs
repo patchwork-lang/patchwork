@@ -9,6 +9,12 @@ mod lexer {
 // Re-export the main types
 pub use lexer::{Mode, Rule, LexData};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DelimiterType {
+    Brace,  // Waiting for }
+    Paren,  // Waiting for )
+}
+
 /// Context for tracking lexer state transitions
 #[derive(Debug, Clone)]
 pub struct LexerContext {
@@ -16,8 +22,12 @@ pub struct LexerContext {
     mode_stack: Vec<Mode>,
     /// Stack of brace depths for each nested context
     depth_stack: Vec<usize>,
+    /// Stack of delimiter types (what are we waiting for to close this context)
+    delimiter_stack: Vec<DelimiterType>,
     /// Last token seen (for lookahead)
     last_token: Option<Rule>,
+    /// Track if we just saw a Dollar in InString mode (for interpolation)
+    in_string_interpolation: bool,
 }
 
 impl LexerContext {
@@ -25,17 +35,21 @@ impl LexerContext {
         Self {
             mode_stack: vec![],
             depth_stack: vec![],
+            delimiter_stack: vec![],
             last_token: None,
+            in_string_interpolation: false,
         }
     }
 
-    fn push_mode(&mut self, mode: Mode) {
+    fn push_mode(&mut self, mode: Mode, delimiter: DelimiterType) {
         self.mode_stack.push(mode);
         self.depth_stack.push(1);
+        self.delimiter_stack.push(delimiter);
     }
 
     fn pop_mode(&mut self) -> Option<Mode> {
         self.depth_stack.pop();
+        self.delimiter_stack.pop();
         self.mode_stack.pop()
     }
 
@@ -126,7 +140,7 @@ where
                 let token = PatchworkToken::new(rule, Some(span));
                 lexer.yield_token(token);
 
-                context.push_mode(Mode::InString);
+                context.push_mode(Mode::InString, DelimiterType::Brace);  // Waiting for StringEnd "
                 lexer.begin(Mode::InString);
                 context.last_token = None;
                 return Ok(());
@@ -146,6 +160,36 @@ where
                         lexer.begin(Mode::Code);
                     }
                 }
+                context.last_token = None;
+                context.in_string_interpolation = false;
+                return Ok(());
+            }
+            Rule::Dollar => {
+                // When we see $ in InString mode, we need to check what follows
+                // If it's { or (, we'll handle that in LBrace/LParen
+                // If it's an identifier, we temporarily switch to Code mode
+                let span = lexer.span();
+                let token = PatchworkToken::new(rule, Some(span));
+                lexer.yield_token(token);
+
+                // Mark that we're in interpolation mode - next token should be in Code mode
+                if lexer.mode() == Mode::InString {
+                    context.in_string_interpolation = true;
+                    lexer.begin(Mode::Code);
+                }
+                context.last_token = Some(rule);
+                return Ok(());
+            }
+            Rule::Identifier if context.in_string_interpolation && context.last_token == Some(Rule::Dollar) => {
+                // We're tokenizing an identifier directly after $ in a string (simple $id case)
+                // This is NOT ${...}, so return to InString mode after identifier
+                let span = lexer.span();
+                let token = PatchworkToken::new(rule, Some(span));
+                lexer.yield_token(token);
+
+                // Return to InString mode
+                context.in_string_interpolation = false;
+                lexer.begin(Mode::InString);
                 context.last_token = None;
                 return Ok(());
             }
@@ -167,19 +211,55 @@ where
                 match context.last_token {
                     Some(Rule::Think) | Some(Rule::Ask) => {
                         // Transition Code -> Prompt
-                        context.push_mode(Mode::Prompt);
+                        context.push_mode(Mode::Prompt, DelimiterType::Brace);
                         lexer.begin(Mode::Prompt);
                     }
                     Some(Rule::Do) if lexer.mode() == Mode::Prompt => {
                         // Transition Prompt -> Code
-                        context.push_mode(Mode::Code);
+                        context.push_mode(Mode::Code, DelimiterType::Brace);
                         lexer.begin(Mode::Code);
+                    }
+                    Some(Rule::Dollar) if context.in_string_interpolation => {
+                        // ${expression} in string - stay in Code mode and track depth
+                        context.push_mode(Mode::Code, DelimiterType::Brace);
+                        // Stay in Code mode (already there from Dollar handling)
                     }
                     _ => {
                         // Just increment depth for nested braces
                         context.increment_depth();
                     }
                 }
+                context.last_token = None;
+                return Ok(());
+            }
+            Rule::LParen if context.last_token == Some(Rule::Dollar) && context.in_string_interpolation => {
+                // $(command) in string - push Code mode and track depth
+                let span = lexer.span();
+                let token = PatchworkToken::new(rule, Some(span));
+                lexer.yield_token(token);
+
+                context.push_mode(Mode::Code, DelimiterType::Paren);  // Waiting for )
+                // Stay in Code mode (already there from Dollar handling)
+                context.last_token = None;
+                return Ok(());
+            }
+            Rule::RParen if context.in_string_interpolation => {
+                let span = lexer.span();
+                let token = PatchworkToken::new(rule, Some(span));
+                lexer.yield_token(token);
+
+                // Only handle closing of $(command) - check if top of delimiter stack is Paren
+                if context.delimiter_stack.last() == Some(&DelimiterType::Paren) {
+                    let depth = context.decrement_depth();
+                    if depth == 0 {
+                        if let Some(_) = context.pop_mode() {
+                            // Return to InString mode after $(command)
+                            context.in_string_interpolation = false;
+                            lexer.begin(Mode::InString);
+                        }
+                    }
+                }
+                // Otherwise this is just a normal RParen in an expression like ${func(...)}
                 context.last_token = None;
                 return Ok(());
             }
@@ -198,8 +278,14 @@ where
                         if let Some(&parent_mode) = context.mode_stack.last() {
                             lexer.begin(parent_mode);
                         } else {
-                            // Back to Code mode
-                            lexer.begin(Mode::Code);
+                            // Back to Code or InString mode
+                            if context.in_string_interpolation {
+                                // Closing ${...} - return to InString
+                                context.in_string_interpolation = false;
+                                lexer.begin(Mode::InString);
+                            } else {
+                                lexer.begin(Mode::Code);
+                            }
                         }
                     }
                 }
@@ -814,6 +900,164 @@ var session_id = "historian-${timestamp}""#;
         assert!(tokens.contains(&Rule::Task));
         assert!(tokens.contains(&Rule::Think));
         assert!(tokens.contains(&Rule::Do));
+        assert!(tokens.contains(&Rule::End));
+
+        Ok(())
+    }
+
+    // String interpolation tests
+    #[test]
+    fn test_string_interpolation_identifier() -> Result<(), ParlexError> {
+        let input = r#""Hello $name""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,     // "Hello "
+            Rule::Dollar,
+            Rule::Identifier,     // name
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_interpolation_multiple() -> Result<(), ParlexError> {
+        let input = r#""Hello $first $last""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,     // "Hello "
+            Rule::Dollar,
+            Rule::Identifier,     // first
+            Rule::StringText,     // " "
+            Rule::Dollar,
+            Rule::Identifier,     // last
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_interpolation_expression() -> Result<(), ParlexError> {
+        let input = r#""Total: ${x + y}""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,     // "Total: "
+            Rule::Dollar,
+            Rule::LBrace,
+            Rule::Identifier,     // x
+            Rule::Whitespace,
+            Rule::Plus,
+            Rule::Whitespace,
+            Rule::Identifier,     // y
+            Rule::RBrace,
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_interpolation_command() -> Result<(), ParlexError> {
+        let input = r#""Date: $(date)""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,     // "Date: "
+            Rule::Dollar,
+            Rule::LParen,
+            Rule::Identifier,     // date
+            Rule::RParen,
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_interpolation_complex_expression() -> Result<(), ParlexError> {
+        let input = r#""Result: ${func(x, y)}""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,     // "Result: "
+            Rule::Dollar,
+            Rule::LBrace,
+            Rule::Identifier,     // func
+            Rule::LParen,
+            Rule::Identifier,     // x
+            Rule::Comma,
+            Rule::Whitespace,
+            Rule::Identifier,     // y
+            Rule::RParen,
+            Rule::RBrace,
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_interpolation_nested() -> Result<(), ParlexError> {
+        let input = r#""Outer ${f("inner")}""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::StringText,     // "Outer "
+            Rule::Dollar,
+            Rule::LBrace,
+            Rule::Identifier,     // f
+            Rule::LParen,
+            Rule::StringStart,    // nested string
+            Rule::StringText,     // "inner"
+            Rule::StringEnd,      // nested string end
+            Rule::RParen,
+            Rule::RBrace,
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_only_interpolation() -> Result<(), ParlexError> {
+        let input = r#""$name""#;
+        let tokens = collect_tokens(input)?;
+
+        assert_eq!(tokens, vec![
+            Rule::StringStart,
+            Rule::Dollar,
+            Rule::Identifier,     // name
+            Rule::StringEnd,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_interpolation_mixed() -> Result<(), ParlexError> {
+        let input = r#""Name: $name, Age: ${age + 1}, Date: $(date)""#;
+        let tokens = collect_tokens(input)?;
+
+        // Verify it contains all the expected token types
+        assert!(tokens.contains(&Rule::StringStart));
+        assert!(tokens.contains(&Rule::StringEnd));
+        assert!(tokens.contains(&Rule::Dollar));
+        assert!(tokens.contains(&Rule::Identifier));
+        assert!(tokens.contains(&Rule::LBrace));
+        assert!(tokens.contains(&Rule::RBrace));
+        assert!(tokens.contains(&Rule::LParen));
+        assert!(tokens.contains(&Rule::RParen));
+        assert!(tokens.contains(&Rule::Plus));
         assert!(tokens.contains(&Rule::End));
 
         Ok(())
