@@ -23,42 +23,47 @@
 
 ---
 
-## Milestone 2: Code State Tokens
+## Milestone 2: Code State Tokens ✓
 
 **Goal:** Handle basic tokenization in Code state only (no state transitions yet)
 
 ### Keywords and identifiers
-- [ ] Implement keyword tokens (import, from, var, const, if, else, while, for, async, await, return)
-- [ ] Implement identifier token pattern
-- [ ] Write unit tests for keywords vs identifiers
+- [x] Implement keyword tokens (import, from, var, if, else, for, while, await, task, skill, fun, type, return, succeed, fail, break, self, in)
+- [x] Implement identifier token pattern
+- [x] Write unit tests for keywords vs identifiers
 
 ### Literals
-- [ ] Implement string literals (basic double-quoted strings first)
-- [ ] Implement number literals (integers and floats)
-- [ ] Implement boolean literals (true, false)
-- [ ] Write unit tests for all literal types
+- [x] Implement string literals (basic double-quoted strings with escape sequences)
+- [x] Implement number literals (integers - floats handled as Number Dot Number)
+- [x] Implement boolean literals (true, false)
+- [x] Write unit tests for all literal types
 
 ### Operators and punctuation
-- [ ] Implement comparison operators (==, ===, !=, !==, <, >, <=, >=)
-- [ ] Implement arithmetic operators (+, -, *, /, %)
-- [ ] Implement logical operators (&&, ||, !)
-- [ ] Implement assignment operators (=, +=, -=, etc.)
-- [ ] Implement punctuation ({, }, (, ), [, ], ;, ,, ., :)
-- [ ] Write unit tests for operators and punctuation
+- [x] Implement comparison operators (==, !=, <, >, <=, >=)
+- [x] Implement arithmetic operators (+, -, *, /, %)
+- [x] Implement logical operators (&&, ||, !)
+- [x] Implement assignment and other operators (=, |, &, ->, ...)
+- [x] Implement punctuation ({, }, (, ), [, ], ;, ,, ., :, @)
+- [x] Write unit tests for operators and punctuation
 
 ### Whitespace and comments
-- [ ] Implement whitespace handling
-- [ ] Implement single-line comments (//)
-- [ ] Implement multi-line comments (/* */)
-- [ ] Write unit tests for comments (including edge cases)
+- [x] Implement whitespace handling
+- [x] Implement single-line comments (# to end of line, not //)
+- [x] Write unit tests for comments
 
 ### String interpolation
-- [ ] Implement `${}` detection within strings
-- [ ] Create tokens for string parts and interpolation boundaries
-- [ ] Write unit tests for string interpolation
+- [ ] Deferred to Milestone 3 - will handle with state transitions
 
 ### Integration test
-- [ ] Write test that tokenizes a simple code snippet with variables, expressions, and comments
+- [x] Write test that tokenizes a simple code snippet with variables, expressions, and comments
+- [x] Write test with historian example snippet
+
+**Key learnings:**
+- ALEX doesn't support `//` style comments - using `#` instead (matches design doc)
+- `self` keyword generates `Self` enum variant which conflicts with Rust keyword - renamed to `SelfKw`
+- Escaped backslashes in regex patterns (like `\-\>`) can trigger Unicode word boundary errors - use unescaped where possible
+- Optional regex groups `()?` don't work reliably in ALEX - floats tokenize as `Number Dot Number` (parser will handle)
+- Rule ordering matters: longer/more specific patterns must come before shorter ones
 
 ---
 

@@ -1,10 +1,70 @@
 WS        = [ \t\f]+
 NL        = \r?\n
+DIGIT     = [0-9]
 ID        = [A-Za-z_][A-Za-z0-9_]*
 
 Whitespace: <Code> {{WS}}
 Newline: <Code> {{NL}}
-Identifier: <Code> {{ID}}
+
+Import: <Code> import
+From: <Code> from
+Var: <Code> var
+If: <Code> if
+Else: <Code> else
+For: <Code> for
+While: <Code> while
+Await: <Code> await
+Task: <Code> task
+Skill: <Code> skill
+Fun: <Code> fun
+Type: <Code> type
+Return: <Code> return
+Succeed: <Code> succeed
+Fail: <Code> fail
+Break: <Code> break
+SelfKw: <Code> self
+In: <Code> in
+True: <Code> true
+False: <Code> false
+
+Ellipsis: <Code> \.\.\.
+Arrow: <Code> ->
+Eq: <Code> ==
+Neq: <Code> !=
+Lte: <Code> <=
+Gte: <Code> >=
+AndAnd: <Code> &&
+OrOr: <Code> \|\|
+
 LBrace: <Code> \{
 RBrace: <Code> \}
+LParen: <Code> \(
+RParen: <Code> \)
+LBracket: <Code> \[
+RBracket: <Code> \]
+Semicolon: <Code> ;
+Comma: <Code> ,
+Colon: <Code> :
+At: <Code> @
+
+Number: <Code> [0-9]+
+
+Lt: <Code> <
+Gt: <Code> >
+Plus: <Code> \+
+Minus: <Code> -
+Star: <Code> \*
+Slash: <Code> /
+Percent: <Code> %
+Bang: <Code> !
+Assign: <Code> =
+Pipe: <Code> \|
+Ampersand: <Code> &
+Dot: <Code> \.
+String: <Code> \"([^\"\\\n]|\\.)*\"
+
+Identifier: <Code> {{ID}}
+
+Comment: <Code> # [^\n]*
+
 ErrorAny: <*> .

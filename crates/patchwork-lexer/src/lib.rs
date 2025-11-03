@@ -107,12 +107,263 @@ pub fn lex_str(input: &str) -> Result<PatchworkLexer<IterInput<impl Iterator<Ite
 mod tests {
     use super::*;
 
+    /// Helper to collect all tokens from input
+    fn collect_tokens(input: &str) -> Result<Vec<Rule>, ParlexError> {
+        let mut lexer = lex_str(input)?;
+        let mut context = ();
+        let mut tokens = Vec::new();
+
+        while let Some(token) = lexer.try_next_with_context(&mut context)? {
+            tokens.push(token.rule);
+        }
+
+        Ok(tokens)
+    }
+
     #[test]
     fn test_empty_input() -> Result<(), ParlexError> {
-        let mut lexer = lex_str("")?;
-        let mut context = ();
-        let token = lexer.try_next_with_context(&mut context)?;
-        assert_eq!(token.map(|t| t.rule), Some(Rule::End));
+        let tokens = collect_tokens("")?;
+        assert_eq!(tokens, vec![Rule::End]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_keywords() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("import from var if else for while")?;
+        assert_eq!(tokens, vec![
+            Rule::Import, Rule::Whitespace,
+            Rule::From, Rule::Whitespace,
+            Rule::Var, Rule::Whitespace,
+            Rule::If, Rule::Whitespace,
+            Rule::Else, Rule::Whitespace,
+            Rule::For, Rule::Whitespace,
+            Rule::While,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_keywords_vs_identifiers() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("import imported var variable")?;
+        assert_eq!(tokens, vec![
+            Rule::Import, Rule::Whitespace,
+            Rule::Identifier, Rule::Whitespace,
+            Rule::Var, Rule::Whitespace,
+            Rule::Identifier,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_task_keywords() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("await task skill fun")?;
+        assert_eq!(tokens, vec![
+            Rule::Await, Rule::Whitespace,
+            Rule::Task, Rule::Whitespace,
+            Rule::Skill, Rule::Whitespace,
+            Rule::Fun,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_control_flow_keywords() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("return succeed fail break in")?;
+        assert_eq!(tokens, vec![
+            Rule::Return, Rule::Whitespace,
+            Rule::Succeed, Rule::Whitespace,
+            Rule::Fail, Rule::Whitespace,
+            Rule::Break, Rule::Whitespace,
+            Rule::In,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_booleans() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("true false")?;
+        assert_eq!(tokens, vec![
+            Rule::True, Rule::Whitespace,
+            Rule::False,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_numbers() -> Result<(), ParlexError> {
+        // Note: Float literals tokenize as Number Dot Number - parser will handle this
+        let tokens = collect_tokens("123 456 0 42")?;
+
+        assert_eq!(tokens, vec![
+            Rule::Number, Rule::Whitespace,
+            Rule::Number, Rule::Whitespace,
+            Rule::Number, Rule::Whitespace,
+            Rule::Number,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_strings() -> Result<(), ParlexError> {
+        let tokens = collect_tokens(r#""hello" "world" "with \"quotes\"" """#)?;
+        assert_eq!(tokens, vec![
+            Rule::String, Rule::Whitespace,
+            Rule::String, Rule::Whitespace,
+            Rule::String, Rule::Whitespace,
+            Rule::String,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_identifiers() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("foo bar_baz _underscore CamelCase snake_case")?;
+        assert_eq!(tokens, vec![
+            Rule::Identifier, Rule::Whitespace,
+            Rule::Identifier, Rule::Whitespace,
+            Rule::Identifier, Rule::Whitespace,
+            Rule::Identifier, Rule::Whitespace,
+            Rule::Identifier,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_comparison_operators() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("== != < > <= >=")?;
+        assert_eq!(tokens, vec![
+            Rule::Eq, Rule::Whitespace,
+            Rule::Neq, Rule::Whitespace,
+            Rule::Lt, Rule::Whitespace,
+            Rule::Gt, Rule::Whitespace,
+            Rule::Lte, Rule::Whitespace,
+            Rule::Gte,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_arithmetic_operators() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("+ - * / %")?;
+        assert_eq!(tokens, vec![
+            Rule::Plus, Rule::Whitespace,
+            Rule::Minus, Rule::Whitespace,
+            Rule::Star, Rule::Whitespace,
+            Rule::Slash, Rule::Whitespace,
+            Rule::Percent,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_logical_operators() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("&& || !")?;
+        assert_eq!(tokens, vec![
+            Rule::AndAnd, Rule::Whitespace,
+            Rule::OrOr, Rule::Whitespace,
+            Rule::Bang,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_other_operators() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("= | & -> ...")?;
+        assert_eq!(tokens, vec![
+            Rule::Assign, Rule::Whitespace,
+            Rule::Pipe, Rule::Whitespace,
+            Rule::Ampersand, Rule::Whitespace,
+            Rule::Arrow, Rule::Whitespace,
+            Rule::Ellipsis,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_punctuation() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("{ } ( ) [ ] ; , . : @")?;
+        assert_eq!(tokens, vec![
+            Rule::LBrace, Rule::Whitespace,
+            Rule::RBrace, Rule::Whitespace,
+            Rule::LParen, Rule::Whitespace,
+            Rule::RParen, Rule::Whitespace,
+            Rule::LBracket, Rule::Whitespace,
+            Rule::RBracket, Rule::Whitespace,
+            Rule::Semicolon, Rule::Whitespace,
+            Rule::Comma, Rule::Whitespace,
+            Rule::Dot, Rule::Whitespace,
+            Rule::Colon, Rule::Whitespace,
+            Rule::At,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_comments() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("foo # this is a comment\nbar")?;
+        assert_eq!(tokens, vec![
+            Rule::Identifier,
+            Rule::Whitespace,
+            Rule::Comment,
+            Rule::Newline,
+            Rule::Identifier,
+            Rule::End
+        ]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_code_snippet() -> Result<(), ParlexError> {
+        let input = r#"var x = 42
+var name = "Alice"
+if x > 10 {
+    return true
+}"#;
+        let tokens = collect_tokens(input)?;
+
+        // Just verify it tokenizes without error and contains expected tokens
+        assert!(tokens.contains(&Rule::Var));
+        assert!(tokens.contains(&Rule::Identifier));
+        assert!(tokens.contains(&Rule::Assign));
+        assert!(tokens.contains(&Rule::Number));
+        assert!(tokens.contains(&Rule::String));
+        assert!(tokens.contains(&Rule::If));
+        assert!(tokens.contains(&Rule::Gt));
+        assert!(tokens.contains(&Rule::LBrace));
+        assert!(tokens.contains(&Rule::Return));
+        assert!(tokens.contains(&Rule::True));
+        assert!(tokens.contains(&Rule::RBrace));
+        assert!(tokens.contains(&Rule::End));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_historian_example_snippet() -> Result<(), ParlexError> {
+        let input = r#"var timestamp = $(date +%Y%m%d-%H%M%S)
+var session_id = "historian-${timestamp}""#;
+
+        let tokens = collect_tokens(input)?;
+
+        // Verify basic tokenization works
+        assert!(tokens.contains(&Rule::Var));
+        assert!(tokens.contains(&Rule::Identifier));
+        assert!(tokens.contains(&Rule::Assign));
+        assert!(tokens.contains(&Rule::String));
+
         Ok(())
     }
 }
