@@ -167,8 +167,8 @@ where
         loop {
             match self.lexer.try_next_with_context(&mut self.context) {
                 Ok(Some(token)) => {
-                    // Skip whitespace, newlines, and comments
-                    if matches!(token.rule, Rule::Whitespace | Rule::Newline | Rule::Comment) {
+                    // Skip whitespace and comments, but KEEP newlines for statement separation
+                    if matches!(token.rule, Rule::Whitespace | Rule::Comment) {
                         continue;
                     }
 

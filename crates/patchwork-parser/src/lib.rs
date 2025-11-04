@@ -2,6 +2,9 @@ pub mod token;
 pub mod adapter;
 pub mod ast;
 
+#[cfg(test)]
+mod milestone3_tests;
+
 // Include generated parser code from lalrpop
 #[allow(clippy::all)]
 mod patchwork {

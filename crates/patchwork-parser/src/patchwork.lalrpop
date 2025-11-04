@@ -105,9 +105,14 @@ extern {
 // Grammar Rules
 // ====================
 
-// Program: top-level items
+// Program: top-level items (with optional newlines between them - similar to StatementList)
 pub Program: Program<'input> = {
-    <items:Item*> end => Program { items },
+    newline* <head:Item> <tail:(newline+ <Item>)*> newline* end => {
+        let mut items = vec![head];
+        items.extend(tail);  // lalrpop flattens (newline+ <Item>) to just Item
+        Program { items }
+    },
+    newline* end => Program { items: vec![] },  // Empty program
 };
 
 // Top-level item
@@ -174,8 +179,139 @@ ParamList: Vec<Param<'input>> = {
 };
 
 // Block: { statements }
-// For Milestone 2, we only recognize empty blocks
-// Statement parsing will be added in Milestone 3
+// Statements are separated by newlines or semicolons (Swift-style)
 Block: Block<'input> = {
-    "{" "}" => Block { statements: vec![] },
+    "{" <statements:StatementList> "}" => Block { statements },
+};
+
+// Separator: newline or semicolon (at least one required between statements)
+Separator: () = {
+    newline => (),
+    ";" => (),
+};
+
+// Statement list
+// Key insight from Swift: newlines (or semicolons) SEPARATE statements.
+// This means after "return", if there's a newline, we know return has no value.
+// If there's no newline, the expression continues on the same logical line.
+StatementList: Vec<Statement<'input>> = {
+    // Empty block (allow leading/trailing newlines)
+    newline* => vec![],
+
+    // Non-empty: optional leading newlines, then statements separated by newlines/semicolons
+    newline* <head:Statement> <tail:(Separator+ <Statement>)*> Separator* => {
+        let mut result = vec![head];
+        result.extend(tail);
+        result
+    },
+};
+
+// Statement (Milestone 3: simple statements)
+// Order matters for ambiguity resolution - more specific rules first
+Statement: Statement<'input> = {
+    // Control flow with blocks - unambiguous (blocks provide boundaries)
+    <IfStmt>,
+    <ForStmt>,
+    <WhileStmt>,
+
+    // Variable declarations - handled explicitly with all variants
+    <VarDeclStmt>,
+
+    // Keywords that can't start expressions - unambiguous
+    <ReturnStmt>,
+    <SucceedStmt>,
+    <FailStmt>,
+    <BreakStmt>,
+
+    // Expression statement last (catch-all)
+    <ExprStmt>,
+};
+
+// Variable declaration
+// Reordered to try with = first (greedy matching for init)
+VarDeclStmt: Statement<'input> = {
+    // var x: type = expr (most specific - try first)
+    "var" <name:identifier> ":" <type_ann:TypeExpr> "=" <init:Expr> => {
+        Statement::VarDecl { name, type_ann: Some(type_ann), init: Some(init) }
+    },
+    // var x = expr (no type annotation)
+    "var" <name:identifier> "=" <init:Expr> => {
+        Statement::VarDecl { name, type_ann: None, init: Some(init) }
+    },
+    // var x: type (no init) - only matches if no = follows
+    "var" <name:identifier> ":" <type_ann:TypeExpr> => {
+        Statement::VarDecl { name, type_ann: Some(type_ann), init: None }
+    },
+    // var x (no init, no type)
+    "var" <name:identifier> => {
+        Statement::VarDecl { name, type_ann: None, init: None }
+    },
+};
+
+// If statement (block provides clear termination)
+IfStmt: Statement<'input> = {
+    "if" <condition:Expr> <then_block:Block> <else_block:("else" <Block>)?> => {
+        Statement::If { condition, then_block, else_block }
+    },
+};
+
+// For loop (block provides clear termination)
+ForStmt: Statement<'input> = {
+    "for" "var" <var:identifier> "in" <iter:Expr> <body:Block> => {
+        Statement::For { var, iter, body }
+    },
+};
+
+// While loop (block provides clear termination)
+WhileStmt: Statement<'input> = {
+    "while" "(" <condition:Expr> ")" <body:Block> => {
+        Statement::While { condition, body }
+    },
+};
+
+// Return statement
+// To resolve the ambiguity, we need to be explicit about when there's no expression.
+// The parser sees "return" and doesn't know if what follows is:
+// 1) part of an expression for this return
+// 2) the start of the next statement
+//
+// Solution: Accept that statements in blocks don't need explicit terminators
+// because blocks themselves provide boundaries. But we need to restrict what
+// can be a statement-level expression vs a return expression.
+//
+// Simpler: just always try to parse an expression if possible (greedy matching)
+// This rule says: ALWAYS try to match "return <Expr>" first due to ordering
+ReturnStmt: Statement<'input> = {
+    "return" <e:Expr?> => Statement::Return(e),
+};
+
+// Succeed/Fail/Break - these are unambiguous keywords
+SucceedStmt: Statement<'input> = {
+    "succeed" => Statement::Succeed,
+};
+
+FailStmt: Statement<'input> = {
+    "fail" => Statement::Fail,
+};
+
+BreakStmt: Statement<'input> = {
+    "break" => Statement::Break,
+};
+
+// Expression statement
+ExprStmt: Statement<'input> = {
+    <Expr> => Statement::Expr(<>),
+};
+
+// Type expression (Milestone 3: simple names only)
+TypeExpr: TypeExpr<'input> = {
+    <identifier> => TypeExpr::Name(<>),
+};
+
+// Expression (Milestone 3: minimal set - identifiers, literals)
+Expr: Expr<'input> = {
+    <identifier> => Expr::Identifier(<>),
+    <number> => Expr::Number(<>),
+    "true" => Expr::True,
+    "false" => Expr::False,
 };

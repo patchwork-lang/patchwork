@@ -127,14 +127,16 @@ This document breaks down the implementation of the patchwork parser into concre
 
 ---
 
-### Milestone 3: Simple Statements
+### Milestone 3: Simple Statements ✅
 
 **Goal:** Parse variable declarations, expression statements, and control flow.
+
+**Status:** COMPLETE
 
 **Tasks:**
 
 1. **Extend Statement enum**
-   - [ ] Add variants:
+   - [x] Add variants:
      - `VarDecl { name: &'input str, type_ann: Option<TypeExpr>, init: Option<Expr> }`
      - `Expr(Expr)`
      - `If { condition: Expr, then_block: Block, else_block: Option<Block> }`
@@ -146,42 +148,59 @@ This document breaks down the implementation of the patchwork parser into concre
      - `Break`
 
 2. **Add grammar rules for statements**
-   - [ ] `VarDecl`: `"var" identifier (":" TypeExpr)? ("=" Expr)?`
-   - [ ] `ExprStmt`: `Expr ";"?` (semicolons optional)
-   - [ ] `If`: `"if" Expr Block ("else" Block)?`
-   - [ ] `For`: `"for" "var" identifier "in" Expr Block`
-   - [ ] `While`: `"while" "(" Expr ")" Block`
-   - [ ] `Return`: `"return" Expr?`
-   - [ ] `Succeed`: `"succeed"`
-   - [ ] `Fail`: `"fail"`
-   - [ ] `Break`: `"break"`
+   - [x] `VarDecl`: `"var" identifier (":" TypeExpr)? ("=" Expr)?`
+   - [x] `ExprStmt`: `Expr` (newlines/semicolons separate)
+   - [x] `If`: `"if" Expr Block ("else" Block)?`
+   - [x] `For`: `"for" "var" identifier "in" Expr Block`
+   - [x] `While`: `"while" "(" Expr ")" Block`
+   - [x] `Return`: `"return" Expr?`
+   - [x] `Succeed`: `"succeed"`
+   - [x] `Fail`: `"fail"`
+   - [x] `Break`: `"break"`
 
 3. **Add placeholder for TypeExpr**
-   - [ ] Define `TypeExpr<'input>` enum with minimal variants:
+   - [x] Define `TypeExpr<'input>` enum with minimal variants:
      - `Name(&'input str)` - for `string`, `int`, etc.
-     - Details deferred to Milestone 7
+     - Details deferred to Milestone 8
 
 4. **Add minimal Expr placeholder**
-   - [ ] Add `Expr::Identifier(&'input str)` variant
-   - [ ] Add `Expr::Placeholder` for unparsed expressions
-   - [ ] Grammar rule: `Expr = { identifier => Expr::Identifier(<>) }`
+   - [x] Add `Expr::Identifier(&'input str)` variant
+   - [x] Add `Expr::Number`, `Expr::True`, `Expr::False` variants
+   - [x] Grammar rules for basic literals
 
-5. **Test statement parsing**
-   - [ ] Test: `var x`
-   - [ ] Test: `var x = y`
-   - [ ] Test: `var x: string = y`
-   - [ ] Test: `if cond { ... }`
-   - [ ] Test: `if cond { ... } else { ... }`
-   - [ ] Test: `for var i in items { ... }`
-   - [ ] Test: `while (true) { ... }`
-   - [ ] Test: `return` and `return value`
-   - [ ] Test: `succeed`, `fail`, `break`
+5. **Implement Swift-style statement separators**
+   - [x] Modified lexer adapter to keep newline tokens
+   - [x] Created `Separator` rule (newline or semicolon)
+   - [x] Updated `StatementList` to require separators between statements
+   - [x] Key insight: newlines SEPARATE statements, enabling `return\nx` to mean return-nothing + x-statement
+
+6. **Test statement parsing**
+   - [x] Test: `var x`
+   - [x] Test: `var x = y`
+   - [x] Test: `var x: string = y`
+   - [x] Test: `if cond { ... }`
+   - [x] Test: `if cond { ... } else { ... }`
+   - [x] Test: `for var i in items { ... }`
+   - [x] Test: `while (true) { ... }`
+   - [x] Test: `return` and `return value`
+   - [x] Test: `succeed`, `fail`, `break`
+   - [x] Test: Newline separation (`return\nx` → two statements)
+   - [x] Test: Semicolon separation (`x; y; z` → three statements on one line)
+
+**Implementation notes:**
+- Adopted Swift's approach: newlines and semicolons act as statement separators
+- This elegantly solves LR(1) ambiguity - no conflicts in lalrpop!
+- `return\nx` parses as two statements (return with no value, then x)
+- `return x` parses as one statement (return with value x)
+- Semicolons allow multiple statements on one line
+- 24 tests passing (9 from M1-2 + 15 new M3 tests)
 
 **Success criteria:**
 - ✅ All statement types parse correctly
 - ✅ Blocks can contain statement sequences
 - ✅ Can parse control flow with nested blocks
 - ✅ Variable declarations with optional type annotations
+- ✅ Swift-style optional semicolons working with LR(1) parser
 
 ---
 

@@ -72,16 +72,62 @@ pub struct Block<'input> {
     pub statements: Vec<Statement<'input>>,
 }
 
-/// Statement (placeholder for now - will be expanded in Milestone 3+)
+/// Statement in a block
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'input> {
-    /// Placeholder - actual statements will be added in Milestone 3
-    Placeholder(PhantomData<&'input ()>),
+    /// Variable declaration: `var x` or `var x: type = expr`
+    VarDecl {
+        name: &'input str,
+        type_ann: Option<TypeExpr<'input>>,
+        init: Option<Expr<'input>>,
+    },
+    /// Expression statement (expression used as statement)
+    Expr(Expr<'input>),
+    /// If statement: `if expr { ... } else { ... }`
+    If {
+        condition: Expr<'input>,
+        then_block: Block<'input>,
+        else_block: Option<Block<'input>>,
+    },
+    /// For loop: `for var x in expr { ... }`
+    For {
+        var: &'input str,
+        iter: Expr<'input>,
+        body: Block<'input>,
+    },
+    /// While loop: `while (expr) { ... }`
+    While {
+        condition: Expr<'input>,
+        body: Block<'input>,
+    },
+    /// Return statement: `return` or `return expr`
+    Return(Option<Expr<'input>>),
+    /// Succeed statement (for tasks): `succeed`
+    Succeed,
+    /// Fail statement (for tasks): `fail`
+    Fail,
+    /// Break statement (for loops): `break`
+    Break,
 }
 
-/// Expression (placeholder for now - will be expanded in Milestone 4+)
+/// Type expression (Milestone 3: minimal placeholder, full implementation in Milestone 8)
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeExpr<'input> {
+    /// Simple type name: `string`, `int`, etc.
+    Name(&'input str),
+}
+
+/// Expression (Milestone 3: minimal set for statement support, expanded in Milestone 4)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr<'input> {
-    /// Placeholder - actual expressions will be added in Milestone 4
+    /// Identifier reference: `foo`
+    Identifier(&'input str),
+    /// Number literal: `42`, `3.14`
+    Number(&'input str),
+    /// Boolean literal: `true`
+    True,
+    /// Boolean literal: `false`
+    False,
+    /// Placeholder for unparsed expressions (temporary for incremental implementation)
     Placeholder(PhantomData<&'input ()>),
 }
