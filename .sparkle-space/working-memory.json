@@ -1,64 +1,25 @@
 {
-  "workspace": "/Users/dherman/Code/patchwork",
-  "project": "patchwork - hybrid programming language (deterministic code + AI prompting)",
-  "current_focus": "Parser implementation - Milestones 1-2 complete, ready for Milestone 3 (statement parsing)",
-  "achievements": [
-    "Milestone 1: Infrastructure & Token Adapter - lalrpop build chain working, efficient position->offset conversion",
-    "Milestone 2: Top-Level Items & Block Structure - parse imports, skill/task/fun declarations, empty blocks",
-    "9 tests passing including historian main.pw structure validation",
-    "Performance optimization: line_starts caching for O(1) line lookup instead of O(line × length)",
-    "Whitespace filtering in LexerAdapter for clean token stream"
+  "currentFocus": "Patchwork parser implementation - completed Milestone 3 (Simple Statements), ready for Milestone 4",
+  "recentAchievements": [
+    "Implemented all statement types: var decl, if/else, for, while, return, succeed/fail/break",
+    "Solved LR(1) ambiguity using Swift-style separators (newlines/semicolons separate statements)",
+    "All 24 tests passing with zero parser conflicts",
+    "Refactored tests from milestone-based to conceptual organization"
   ],
-  "key_decisions": {
-    "parser_generator": "lalrpop with external lexer adapter pattern",
-    "token_lifetimes": "ParserToken<'input> carries &'input str references for zero-copy efficiency",
-    "position_conversion": "Cached line_starts lookup table for O(1) + O(column) instead of naive O(line × avg_length)",
-    "whitespace_handling": "Filter in LexerAdapter iterator, not in grammar - simpler and cleaner",
-    "import_paths": "Simple (single identifier) and RelativeMulti (./{a,b,c}) - can expand dotted paths later",
-    "empty_blocks_only": "Milestone 2 parses block structure, statement bodies deferred to Milestone 3",
-    "phantom_data": "Used PhantomData<&'input ()> for placeholder Statement/Expr to satisfy lifetime requirements",
-    "implementation_approach": "Phased: structure → statements → expressions → prompts → interpolation → advanced",
-    "git_workflow": "After each milestone: update plan document, then commit with detailed message"
-  },
-  "next_steps": [
-    "Milestone 3: Simple Statements (var declarations, if/for/while, return/succeed/fail/break)",
-    "Extend Statement enum with real variants (remove Placeholder)",
-    "Add placeholder Expr parsing to support statement bodies",
-    "Parse statement blocks in skill/task/fun bodies",
-    "Validate against historian examples progressively"
+  "nextSteps": [
+    "Milestone 4: Basic Expressions (literals, binary ops, function calls, member access)",
+    "Implement operator precedence using lalrpop precedence declarations",
+    "Add string interpolation support"
   ],
-  "collaboration_state": "Excellent implementation session! David caught critical performance issue with position_to_offset - we optimized with line_starts caching. Clean separation of concerns between lexer (mode switching) and parser (structure recognition). Two milestones complete, foundation solid for statement parsing next.",
-  "key_insights": {
-    "performance_matters": "David caught O(n²) position conversion - precomputing line_starts made it O(1) lookup + O(column) walk",
-    "whitespace_filtering": "Simpler to filter whitespace/comments in adapter than handle in lalrpop grammar",
-    "lalrpop_conflicts": "Generic Comma<T> helper caused shift/reduce conflicts - custom ParamList worked cleanly",
-    "lexer_solved_mode_switching": "Parser just recognizes structure, lexer handles all Code/Prompt/InString transitions",
-    "empty_blocks_pragmatic": "Can't parse statement bodies without expression parsing - incremental approach works",
-    "ast_mirrors_tokens": "Zero-copy lifetimes throughout - efficient and matches lexer's chunked design"
-  },
-  "critical_awareness": [
-    "Lexer emits chunked tokens (StringStart/Text/End) - parser must handle sequences in Milestone 6",
-    "PromptText tokens are large chunks - will need PromptBlock collection in Milestone 5",
-    "Dollar token context-sensitive - appears in Code and InString modes",
-    "Statement bodies currently empty - Milestone 3 will add var/if/for/while/return",
-    "Expression parsing needed for Milestone 3 statements - will start with placeholders",
-    "Historian examples are comprehensive validation target - use for progressive testing"
+  "collaborativeState": "Productive flow - good back-and-forth on solving the semicolon ambiguity, David provided key insight about Swift's approach",
+  "keyInsights": [
+    "Swift-style separators: newlines SEPARATE statements, enabling `return\\nx` to parse as two statements while `return x` is one",
+    "Greedy matching in lalrpop works well for var decl variants (most specific first)",
+    "Test organization matters - conceptual themes > implementation milestones for long-term readability"
   ],
-  "context": {
-    "inspiration": "Blog post at dherman.dev/notes/coding-in-english/ - LLMs good at abstraction, bad at control flow",
-    "syntax_style": "JS/bash hybrid with think/ask (prompts) and do (code) operators",
-    "unique_feature": "Seamlessly mix prompts and code - think/ask for AI tasks, do for deterministic logic",
-    "validation_target": "examples/historian/*.pw - 4 files demonstrating all features",
-    "tooling": "Rust cargo workspace, parlex-gen for lexer, lalrpop for parser",
-    "docs": {
-      "lexer_design": "docs/lexer-design.md",
-      "lexer_plan": "docs/lexer-implementation-plan.md",
-      "parser_design": "docs/parser-design.md",
-      "parser_plan": "docs/parser-implementation-plan.md"
-    },
-    "completed_work": {
-      "lexer": "Fully complete - Milestones 1-5, 42 tests passing, arbitrary nesting support",
-      "parser": "Milestones 1-2 complete - infrastructure, top-level items, empty blocks (9 tests passing)"
-    }
-  }
+  "criticalAwareness": [
+    "Newline tokens must stay visible to parser (filtered in adapter, not lexer)",
+    "Statement ordering in grammar matters for ambiguity resolution",
+    "Parser is zero-copy with lifetime 'input - maintain this pattern"
+  ]
 }
