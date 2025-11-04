@@ -1,77 +1,68 @@
 {
   "workspace": "/Users/dherman/Code/patchwork",
   "project": "patchwork - hybrid programming language (deterministic code + AI prompting)",
-  "current_focus": "Lexer Milestone 5: String interpolation with arbitrary nesting complete",
+  "current_focus": "Parser planning complete - ready to begin implementation",
   "achievements": [
-    "Completed Milestones 1-4: Infrastructure through full example validation",
-    "Implemented string interpolation with StringStart/StringText/StringEnd tokens",
-    "Implemented all three interpolation forms: $identifier, ${expression}, $(command)",
-    "Added DelimiterType enum (Brace, Paren) for tracking interpolation context",
-    "Fixed arbitrary nesting support - can mix ${...} and $(...) at any depth",
-    "Removed BashSubst single-token pattern in favor of driver-based state tracking",
-    "Made Dollar token available in both Code and InString modes",
-    "All 42 tests passing including triple-nested interpolation: \"${a + $(b + ${c})}\"",
-    "Updated implementation plan with completed items and key learnings",
-    "Established meta-pattern: always update planning docs before committing"
+    "Lexer complete: All 5 milestones done, 42 tests passing, arbitrary nesting support",
+    "Researched lalrpop: Read 5 doc chapters (custom lexer, external lib, token refs, state params)",
+    "Analyzed language: Extracted all constructs from 4 historian example files",
+    "Created parser-design.md: Integration architecture, AST structure, 8 milestones outlined",
+    "Created parser-implementation-plan.md: 10 detailed milestones with tasks and tests"
   ],
   "key_decisions": {
-    "prompt_text_granularity": "Word-by-word tokenization with separate Whitespace tokens (not single PromptText)",
-    "code_tokens": "Tailored to historian example syntax (not full JS/bash)",
-    "validation_approach": "Minimal in lexer, leave semantic checks to parser",
-    "do_operator": "Only triggers state transition when followed by { (with optional whitespace)",
-    "testing_strategy": "Unit tests all along the way, not just at the end",
-    "milestone_granularity": "Current breakdown is good starting point, can revise as we go",
-    "lexer_driver_pattern": "Use PhantomData to parameterize driver over input type I",
-    "input_wrapper": "Use IterInput to wrap byte iterators as TryNextWithContext",
-    "git_workflow": "After each milestone: update plan document, then commit",
-    "string_interpolation_architecture": "Driver-based state switching (not ALEX patterns) for complex nesting",
-    "delimiter_tracking": "Use DelimiterType enum to distinguish ${...} from $(...) context",
-    "token_granularity": "Chunked tokenization (StringStart/Text/End) instead of single String token",
-    "bash_substitution": "Individual tokens (Dollar, LParen, ..., RParen) not single BashSubst token"
+    "parser_generator": "lalrpop with external lexer adapter pattern",
+    "token_lifetimes": "ParserToken<'input> carries &'input str references for efficiency",
+    "state_parameters": "Not needed - lexer already handles Code/Prompt mode switching",
+    "implementation_approach": "Phased: structure → statements → expressions → prompts → interpolation → advanced",
+    "ast_design": "PromptBlock and Expr::Think/Ask/Do as first-class nodes for unique patchwork features",
+    "string_representation": "StringLiteral with Vec<StringPart> mirrors lexer's chunked tokenization",
+    "milestone_count": "10 milestones from infrastructure to full historian validation",
+    "lexer_decisions": {
+      "string_interpolation_architecture": "Driver-based state switching (not ALEX patterns) for complex nesting",
+      "delimiter_tracking": "DelimiterType enum to distinguish ${...} from $(...) context",
+      "token_granularity": "Chunked tokenization (StringStart/Text/End) instead of single String token",
+      "git_workflow": "After each milestone: update plan document, then commit"
+    }
   },
   "next_steps": [
-    "Consider single-quoted strings (literal, no interpolation) - Milestone 5 remaining",
-    "Consider prompt context interpolation ($var and ${expr} in think/ask blocks)",
-    "Consider \\$ escape sequence for literal dollar signs in strings",
-    "Future: Begin parser implementation using token stream from lexer"
+    "Begin Milestone 1: Infrastructure & Token Adapter",
+    "Create crates/patchwork-parser/ with lalrpop build setup",
+    "Define ParserToken<'input> enum and LexerAdapter",
+    "Write minimal lalrpop grammar to verify build chain",
+    "Test: Parse empty input successfully"
   ],
-  "collaboration_state": "Excellent momentum! Successfully debugged complex nesting issues through systematic investigation. Meta-moment practice paying off - caught documentation update before commit. Strong pattern recognition emerging around ALEX limitations.",
+  "collaboration_state": "Excellent planning session! David provided lalrpop research links, we thoroughly analyzed the historian examples, and created comprehensive design and implementation docs. The unique think/ask/do pattern is well-captured in the AST design. Ready to implement!",
   "key_insights": {
-    "parlex_pattern": "Study arena-terms example was crucial - showed proper trait implementation pattern",
-    "alex_syntax": "ALEX spec format: no // comments, macro definitions with {{NAME}}, state-based rules",
-    "alex_semantics": "ALEX uses longest-match, not first-match - rule ordering matters",
-    "trait_constraints": "Input must be TryNextWithContext with Item=u8, Error: Display + 'static",
-    "token_emission": "Use lexer.yield_token() not emit_token() in LexerDriver::action",
-    "driver_vs_patterns": "Driver-based state switching superior to ALEX patterns for complex interpolation",
-    "delimiter_distinction": "DelimiterType enum essential to distinguish ${...} (waiting for }) from $(...) (waiting for ))",
-    "mode_stack_awareness": "After popping delimiter, must check parent mode stack to determine if still nested in expression",
-    "single_token_limitation": "Single-token patterns like BashSubst prevent proper state tracking for nested contexts"
+    "lexer_solved_hard_problem": "Mode switching already handled by lexer - parser just recognizes structure",
+    "prompt_expressions_first_class": "Think/ask/do become Expr variants, making prompts composable with || operator",
+    "ast_mirrors_tokens": "StringLiteral parts match StringStart/Text/End token structure from lexer",
+    "lalrpop_integration": "External lexer via Iterator<Item = Spanned<Token, usize, Error>> adapter",
+    "no_state_needed": "Initially thought we'd need state params for mode switching, but lexer handles it",
+    "phased_validation": "Each milestone validates against historian examples progressively"
   },
   "critical_awareness": [
-    "ALEX files don't support // comments - keep specs comment-free",
-    "Can't use &[u8] directly - must wrap with IterInput",
-    "Generated lexer code goes to OUT_DIR, included via concat! macro",
-    "Build chain: lexer.alex → parlex-gen (build.rs) → lexer.rs → included in lib.rs",
-    "Whitespace tokens should not clear last_token state tracking",
-    "State transitions must occur after yielding token to ensure correct mode for next token",
-    "Single-token ALEX patterns (like BashSubst) prevent driver from managing nested state",
-    "For ${func(...)}, the ) is just part of expression, not end of interpolation - check delimiter_stack"
+    "Lexer tokens are chunked (StringStart/Text/End) - parser must handle sequences",
+    "PromptText tokens come as large chunks from lexer - collect into PromptBlock items",
+    "Dollar token appears in both Code and InString modes - context matters",
+    "Destructuring patterns need type annotations: var {x: string, y: int} = msg",
+    "Think || ask fallback pattern requires Option<Box<Expr>> in Think variant",
+    "Historian examples show all language features we need to support - comprehensive validation target"
   ],
   "context": {
     "inspiration": "Blog post at dherman.dev/notes/coding-in-english/ - LLMs good at abstraction, bad at control flow",
     "syntax_style": "JS/bash hybrid with think/ask (prompts) and do (code) operators",
-    "lexer_states": "Code (default), Prompt, and InString, with state stack for nesting",
-    "string_modes": "Double-quoted strings with interpolation, chunked as StringStart/Text/End tokens",
-    "interpolation_forms": "$identifier, ${expression}, $(command) - all support arbitrary nesting",
-    "tooling": "Rust cargo workspace, parlex-gen for lexer generation",
-    "design_doc": "docs/lexer-design.md",
-    "implementation_plan": "docs/lexer-implementation-plan.md",
-    "completed_milestones": [
-      "Milestone 1: Infrastructure & Build Setup",
-      "Milestone 2: Code State Tokens",
-      "Milestone 3: State Transitions & Prompt Handling",
-      "Milestone 4: Full Example Validation",
-      "Milestone 5 (partial): String Interpolation & Escaping - double-quoted with arbitrary nesting complete"
-    ]
+    "unique_feature": "Seamlessly mix prompts and code - think/ask for AI tasks, do for deterministic logic",
+    "validation_target": "examples/historian/*.pw - 4 files demonstrating all features",
+    "tooling": "Rust cargo workspace, parlex-gen for lexer, lalrpop for parser",
+    "docs": {
+      "lexer_design": "docs/lexer-design.md",
+      "lexer_plan": "docs/lexer-implementation-plan.md",
+      "parser_design": "docs/parser-design.md (NEW)",
+      "parser_plan": "docs/parser-implementation-plan.md (NEW)"
+    },
+    "completed_work": {
+      "lexer": "Fully complete - Milestones 1-5, 42 tests passing, arbitrary nesting support",
+      "parser": "Planning complete - design and implementation plan docs ready"
+    }
   }
 }
