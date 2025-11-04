@@ -75,7 +75,7 @@ Dot: <Code> \.
 
 Identifier: <Code> {{ID}}
 
-Comment: <Code> # [^\n]*
+Comment: <Code> #[^\n]*
 
 PromptText: <Prompt> [^{}\s\$]+
 

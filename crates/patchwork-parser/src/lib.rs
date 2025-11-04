@@ -2448,4 +2448,295 @@ mod tests {
             _ => panic!("Expected type declaration"),
         }
     }
+
+    // ===== Milestone 9: Comments & Annotations =====
+
+    #[test]
+    fn test_inline_comment() {
+        let input = "fun test() { var x = 1  # this is a comment\n}";
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Function(func) => {
+                assert_eq!(func.body.statements.len(), 1);
+                match &func.body.statements[0] {
+                    Statement::VarDecl { pattern, init } => {
+                        match pattern {
+                            Pattern::Identifier { name, .. } => assert_eq!(*name, "x"),
+                            _ => panic!("Expected Identifier pattern"),
+                        }
+                        assert!(init.is_some());
+                    }
+                    _ => panic!("Expected VarDecl"),
+                }
+            }
+            _ => panic!("Expected function with body"),
+        }
+    }
+
+    #[test]
+    fn test_comment_before_declaration() {
+        let input = "# This is a comment\nfun test() {}";
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_comment_between_statements() {
+        let input = r#"
+fun test() {
+    var x = 1
+    # Comment in the middle
+    var y = 2
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Function(func) => {
+                assert_eq!(func.body.statements.len(), 2);
+            }
+            _ => panic!("Expected function with body"),
+        }
+    }
+
+    #[test]
+    fn test_decorator_annotation_arg() {
+        let input = r#"
+# @arg session_id
+# @arg work_dir
+task foo(session_id, work_dir) {}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Task(task) => {
+                assert_eq!(task.name, "foo");
+                assert_eq!(task.params.len(), 2);
+            }
+            _ => panic!("Expected task declaration"),
+        }
+    }
+
+    #[test]
+    fn test_decorator_annotation_color() {
+        let input = r#"
+# @color purple
+skill analyst() {}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Skill(skill) => {
+                assert_eq!(skill.name, "analyst");
+            }
+            _ => panic!("Expected skill declaration"),
+        }
+    }
+
+    #[test]
+    fn test_multiple_comments_and_code() {
+        let input = r#"
+# Top-level comment
+import foo
+
+# Comment before skill
+# @arg x description
+skill bar(x) {
+    # Comment inside skill
+    var result = x  # inline comment
+    # Another comment
+    return result
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 2);
+
+        // First item is import
+        match &program.items[0] {
+            Item::Import(_) => {},
+            _ => panic!("Expected import"),
+        }
+
+        // Second item is skill
+        match &program.items[1] {
+            Item::Skill(skill) => {
+                assert_eq!(skill.name, "bar");
+                assert_eq!(skill.body.statements.len(), 2); // var and return
+            }
+            _ => panic!("Expected skill"),
+        }
+    }
+
+    #[test]
+    fn test_comment_in_expression() {
+        let input = r#"
+fun test() {
+    var result = 1 + 2  # adding numbers
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_comment_in_if_statement() {
+        let input = r#"
+fun test() {
+    if x {  # condition
+        # inside then block
+        var y = 1
+    } else {
+        # inside else block
+        var z = 2
+    }
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Function(func) => {
+                match &func.body.statements[0] {
+                    Statement::If { then_block, else_block, .. } => {
+                        assert_eq!(then_block.statements.len(), 1);
+                        assert!(else_block.is_some());
+                    }
+                    _ => panic!("Expected if statement"),
+                }
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_comment_in_loop() {
+        let input = r#"
+fun test() {
+    for var i in items {
+        # Process each item
+        log(i)  # log it
+    }
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_comment_with_type_annotation() {
+        let input = r#"
+# Type annotation example
+fun test() {
+    var x: string = "hello"  # string variable
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_comment_with_spaces() {
+        // Test comment with just spaces (more realistic than truly empty #)
+        let input = "# Comment line 1\n#  \n# Comment line 2\nfun test() {}";
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_comment_only_file() {
+        let input = r#"
+# Just a comment
+# Another comment
+# And another
+"#;
+        let program = parse(input).unwrap();
+        // Should parse as empty program
+        assert_eq!(program.items.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_historian_main_with_comments() {
+        // Test parsing a snippet from the actual historian main.pw file
+        let input = r#"
+import foo
+
+# Rewrites the current git branch
+#
+# @arg changeset_description Text describing the changeset
+skill rewriting_git_branch(changeset_description) {
+    var session_id = "test"
+    return session_id
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 2); // import + skill
+
+        match &program.items[1] {
+            Item::Skill(skill) => {
+                assert_eq!(skill.name, "rewriting_git_branch");
+                assert_eq!(skill.params.len(), 1);
+                assert_eq!(skill.params[0].name, "changeset_description");
+            }
+            _ => panic!("Expected skill"),
+        }
+    }
+
+    #[test]
+    fn test_parse_historian_main_comments() {
+        // Verify comments work correctly with a simplified version of main.pw
+        // Full main.pw parsing will succeed in Milestone 10 after implementing:
+        // - Bare command expressions (mkdir, echo, cat)
+        // - await task syntax
+        // - Complex bash substitution
+        let input = r#"
+import ./{analyst, narrator, scribe}
+
+# Rewrites the current git branch into clean, logical commits by orchestrating three tasks.
+#
+# @arg changeset_description Text describing the changeset (e.g., pull request)
+skill rewriting_git_branch(changeset_description) {
+    # Variable declarations with string interpolation
+    var timestamp = "20250104-120000"
+    var session_id = "historian-20250104-120000"
+    var work_dir = "/tmp/historian-20250104-120000"
+
+    # Return the session info
+    return session_id
+}
+"#;
+        let program = parse(input).unwrap();
+        assert_eq!(program.items.len(), 2); // import + skill
+
+        // Verify import parsed correctly
+        match &program.items[0] {
+            Item::Import(import) => {
+                match &import.path {
+                    ImportPath::RelativeMulti(names) => {
+                        assert_eq!(names.len(), 3);
+                        assert!(names.contains(&"analyst"));
+                        assert!(names.contains(&"narrator"));
+                        assert!(names.contains(&"scribe"));
+                    }
+                    _ => panic!("Expected RelativeMulti import"),
+                }
+            }
+            _ => panic!("Expected import"),
+        }
+
+        // Verify skill parsed correctly with comments
+        match &program.items[1] {
+            Item::Skill(skill) => {
+                assert_eq!(skill.name, "rewriting_git_branch");
+                assert_eq!(skill.params.len(), 1);
+                assert_eq!(skill.params[0].name, "changeset_description");
+                assert_eq!(skill.body.statements.len(), 4); // 3 vars + return
+            }
+            _ => panic!("Expected skill"),
+        }
+    }
 }

@@ -1,36 +1,36 @@
 {
-  "currentFocus": "Patchwork parser implementation - Milestone 8 (Type System) completed, ready for Milestone 9 (Comments & Annotations)",
+  "currentFocus": "Patchwork parser implementation - Milestone 9 (Comments & Annotations) completed, ready for Milestone 10 (Full Historian Example Validation)",
   "recentAchievements": [
-    "Milestone 8 complete: Full type system implemented with complex types",
-    "All 74 tests passing (62 from M1-7 + 12 new M8 tests)",
+    "Milestone 9 complete: Comments and decorator annotations fully working",
+    "Fixed critical lexer bug: Changed regex from '# [^\\n]*' to '#[^\\n]*' to match empty comments",
+    "Empty comment lines (standalone #) now parse correctly - used as visual separators in historian examples",
+    "All 88 tests passing (74 from M1-8 + 13 new M9 tests + 1 historian example test)",
     "Zero parser conflicts maintained throughout implementation",
-    "Expanded TypeExpr enum with 5 variants: Name, Object, Array, Union, Literal",
-    "Added TypeDeclItem for top-level type declarations (type name = TypeExpr)",
-    "TypeFieldList handles newlines elegantly for readable formatting",
-    "12 comprehensive tests cover all type features: simple, array, union, object, nested, literals"
+    "13 comprehensive M9 tests cover: inline comments, decorator annotations, empty comments, comment-only files",
+    "Decorator annotations (@arg, @color) treated as comments - semantic analysis can parse later",
+    "Verified comment handling with simplified historian main.pw example"
   ],
   "nextSteps": [
-    "Milestone 9: Comments & Annotations (handle comment tokens, decorator-style annotations)",
-    "Consider whether to commit M8 work to git before starting M9",
-    "Milestone 10: Full Historian Example Validation (parse all four example files)",
+    "Milestone 10: Full Historian Example Validation - parse all four example files completely",
+    "M10 requires implementing: bare command expressions (mkdir, echo, cat), await task syntax, complex bash substitution",
+    "Note: Full main.pw currently fails on unimplemented features (not comment issues)",
     "After parser complete: AST visitor pattern, pretty printer, semantic analysis"
   ],
-  "collaborativeState": "Excellent systematic work - tackled type system methodically, zero technical debt",
+  "collaborativeState": "Excellent progress - systematic debugging led to finding and fixing lexer bug. Clean implementation with comprehensive tests.",
   "keyInsights": [
-    "Union types use manual precedence (lowest) - allows type1 | type2 | type3 parsing cleanly",
-    "TypeFieldList mirrors other list patterns with newline support for formatting",
-    "String literals in type position extract text via .parts.first() - validates no interpolation",
-    "Type annotations appear in two places: Pattern::Identifier and ObjectPatternField",
-    "Pattern-based VarDecl from M7 enabled clean type annotation support",
-    "lalrpop's manual precedence climbing scales well - added union types with zero conflicts"
+    "Lexer regex '# [^\\n]*' matched '# ' followed by anything, but not standalone '#' - subtle bug!",
+    "Empty comments are used in historian examples as visual separators between comment blocks",
+    "Parser adapter filters comments at line 171 of adapter.rs alongside whitespace",
+    "Decorator annotations are just comments - no special AST nodes needed, keeps parser simple",
+    "Testing revealed lexer issues before parser issues - importance of comprehensive test coverage",
+    "Simplified historian examples work perfectly - full examples need additional language features"
   ],
   "criticalAwareness": [
-    "TypeExpr has 5 variants now - all pattern matches need wildcards for exhaustiveness",
-    "TypeField has optional bool field (unused now) for future key?: type syntax",
-    "TypeFieldList allows newlines - multiline object types work like expected",
-    "String literal types (Literal variant) assume simple strings - interpolation treated as empty",
-    "74 tests passing validates complete M1-8 implementation",
-    "Zero parser conflicts maintained across all 8 milestones",
-    "Type declarations are top-level items, not statements"
+    "Lexer bug fix in lexer.alex:78 - '#[^\\n]*' now matches comments with or without content",
+    "Comments are completely filtered out - no AST preservation for doc generation yet",
+    "Full historian files need: bare commands, 'await task' syntax, complex bash substitution patterns",
+    "88 tests passing validates complete M1-9 implementation",
+    "Zero parser conflicts maintained across all 9 milestones",
+    "main.pw parse failure at line 11 (mkdir -p work_dir) is expected - bare commands not yet implemented"
   ]
 }
