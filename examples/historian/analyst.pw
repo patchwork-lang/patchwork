@@ -9,23 +9,23 @@ import std.log
 #
 # @color purple
 task analyst(session_id, work_dir, changeset_description) {
-    mkdir -p "${work_dir}/narrator"
-    mkdir -p "${work_dir}/analyst"
+    $ mkdir -p "${work_dir}/narrator"
+    $ mkdir -p "${work_dir}/analyst"
 
     log(session_id, "ANALYST", "Starting analysis")
 
     # Check for clean working tree
-    if ! git diff_index --quiet HEAD -- {
+    if !($ git diff_index --quiet HEAD --) {
       echo "error" > "${work_dir}/analyst/status"
       log(session_id, "ANALYST", "ERROR: Working tree not clean")
       fail
     }
 
-    var branch=$(git rev_parse --abbrev_ref HEAD)
+    var branch = $(git rev_parse --abbrev_ref HEAD)
 
     # Check for detached HEAD
     if branch = "HEAD" {
-        echo "error" > "${work_dir}/analyst/status"
+        $ echo "error" > "${work_dir}/analyst/status"
         log(session_id, "ANALYST", "ERROR: Detached HEAD")
         fail
     }
@@ -36,10 +36,10 @@ task analyst(session_id, work_dir, changeset_description) {
     var clean_branch = "${branch}-${timestamp}-clean"
 
     # Create master diff
-    git diff $base_commit..HEAD > "${work_dir}/master.diff"
+    $ git diff $base_commit..HEAD > "${work_dir}/master.diff"
 
     # Create clean branch
-    git checkout -b "${clean_branch}" "${base_commit}"
+    $ git checkout -b "${clean_branch}" "${base_commit}"
 
     log(session_id, "ANALYST", "Created clean branch: ${clean_branch}")
 
@@ -108,9 +108,9 @@ task analyst(session_id, work_dir, changeset_description) {
     }
 
     if !approval {
-        git checkout "${branch}"
-        git branch -D "${clean_branch}"
-        echo "error" > "${work_dir}/analyst/status"
+        $ git checkout "${branch}"
+        $ git branch -D "${clean_branch}"
+        $ echo "error" > "${work_dir}/analyst/status"
         log(session_id, "ANALYST", "User cancelled")
         fail
     }
@@ -133,7 +133,7 @@ task analyst(session_id, work_dir, changeset_description) {
 
     log(session_id, "ANALYST", "Sent build config to scribe")
 
-    cat("${work_dir}/state.json", {
+    cat({
         session_id,
         timestamp,
         original_branch: branch,
@@ -142,9 +142,9 @@ task analyst(session_id, work_dir, changeset_description) {
         work_dir,
         build_command,
         total_commits: commit_plan.length
-    })
+    }) > "${work_dir}/state.json"
 
-    echo "done" > "${work_dir}/analyst/status"
+    $ echo "done" > "${work_dir}/analyst/status"
 
     log(session_id, "ANALYST", "Analysis complete, exiting")
 }

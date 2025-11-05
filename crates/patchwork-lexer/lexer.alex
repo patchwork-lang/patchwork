@@ -3,13 +3,13 @@ NL        = \r?\n
 DIGIT     = [0-9]
 ID        = [A-Za-z_][A-Za-z0-9_]*
 
-Whitespace: <Code,Prompt> {{WS}}
-Newline: <Code,Prompt> {{NL}}
+Whitespace: <Code,Prompt,Shell> {{WS}}
+Newline: <Code,Prompt,Shell> {{NL}}
 
-StringStart: <Code> \"
+StringStart: <Code,Shell> \"
 StringEnd: <InString> \"
 StringText: <InString> ([^\"\$\\]|\\.)+
-Dollar: <Code,InString,Prompt> \$
+Dollar: <Code,InString,Prompt,Shell> \$
 
 SingleQuoteString: <Code> '([^'\\]|\\.)*'
 
@@ -49,8 +49,8 @@ OrOr: <Code> \|\|
 
 LBrace: <Code,Prompt> \{
 RBrace: <Code,Prompt> \}
-LParen: <Code,Prompt> \(
-RParen: <Code,Prompt> \)
+LParen: <Code,Prompt,Shell> \(
+RParen: <Code,Prompt,Shell> \)
 LBracket: <Code> \[
 RBracket: <Code> \]
 Semicolon: <Code> ;
@@ -79,5 +79,18 @@ Identifier: <Code> {{ID}}
 Comment: <Code> #[^\n]*
 
 PromptText: <Prompt> [^{}\s\$]+
+
+ShellRedirectErrToOut: <Shell> 2>&1
+ShellRedirectErr: <Shell> 2>
+ShellRedirectAppend: <Shell> >>
+ShellRedirectOut: <Shell> >
+ShellRedirectIn: <Shell> <
+ShellOr: <Shell> \|\|
+ShellAnd: <Shell> &&
+ShellPipe: <Shell> \|
+ShellBackground: <Shell> &
+ShellAssign: <Shell> =
+ShellBackslash: <Shell> \\
+ShellArg: <Shell> [^\s\$\"\(\)<>|&=\\]+
 
 ErrorAny: <*> .
