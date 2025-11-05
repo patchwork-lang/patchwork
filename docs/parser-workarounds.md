@@ -19,16 +19,40 @@ if start > end {
 }
 ```
 
-**Root Cause:** Lexer span tracking breaks when transitioning between modes (Code → Prompt → InString) with interpolation like `${work_dir}` inside think/ask blocks.
+**Root Cause:** Lexer span tracking breaks when transitioning between modes (Code → Prompt → InString) with interpolation like `${work_dir}` inside think/ask blocks, **combined with multi-byte UTF-8 characters**. Specifically triggered by:
+- Multiple mode transitions in sequence (think → ask → think)
+- Backtick strings with interpolation in Prompt mode
+- Multi-byte UTF-8 characters (e.g., `→` U+2192, 3 bytes) in the text
+- Complex: `think { } || ask { }` followed by `think { backtick-string-with-${interpolation} }` with UTF-8 chars
 
-**Proper Fix:** Fix lexer state management to maintain correct position tracking through all mode transitions.
+**Reproduction:** analyst.pw lines 60-79 shows the pattern:
+```
+} || ask {
+    ...
+}
+
+var commit_plan = think {
+    Read `${work_dir}/master.diff` ...
+    - Follows a progression (infrastructure → core → features → polish → tests/docs)
+```
+
+After multiple Prompt mode transitions, line 79 (containing 4 × `→` characters, 3 bytes each = 12 bytes but 4 columns) causes Newline token to have backwards span (start=2781, end=2774).
+
+**Technical Details:** The `→` character (U+2192) is 3 bytes in UTF-8 (bytes: `e2 86 92`). Line 79 has 4 of these, adding 12 bytes but only 4 to the column count. The lexer's position tracking uses column-based positions but span start/end are byte offsets. After mode transitions, the conversion between column positions and byte offsets gets corrupted when multi-byte characters are present. The position accumulator goes negative, producing backwards spans.
+
+**Proper Fix:** Fix parlex's UTF-8 position tracking during mode transitions. The issue is in how `lexer.span()` converts between line/column positions and byte offsets when mode transitions occur. This is likely a parlex framework bug rather than our lexer code. Options:
+1. Patch parlex to fix UTF-8 byte offset tracking across mode changes
+2. Switch to a different lexer that handles UTF-8 correctly
+3. Work around by normalizing UTF-8 characters in input (unacceptable - loses user content)
+4. Accept the workaround (skip invalid spans) as good enough
 
 **Impact:**
 - Silently skips malformed tokens (logs warning to stderr)
 - May cause parser to see incomplete token stream
-- Affects analyst.pw (1 Newline token skipped)
+- Affects analyst.pw (1 Newline token skipped at line ~80)
+- Only triggers with specific complex patterns, not all interpolation
 
-**Test:** analyst.pw line 75 (`${work_dir}` in think block)
+**Test:** analyst.pw exhibits the bug, simplified tests don't reproduce it
 
 ---
 

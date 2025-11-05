@@ -2864,4 +2864,35 @@ task test() {
         let result = parse(input);
         assert!(result.is_ok(), "Failed to parse negated shell expression: {:?}", result);
     }
+
+    #[test]
+    fn test_backtick_interpolation_in_prompt() {
+        // Minimal reproduction of the invalid span issue from analyst.pw
+        let input = r#"
+task test() {
+    var commit_plan = think {
+        Read `${work_dir}/master.diff` and analyze the changes.
+
+        Based on the diff and the changeset description, create a commit plan that:
+        - Breaks changes into 5-15 logical commits
+        - Each commit is independently reviewable
+        - Tells a clear story
+
+        **IMPORTANT**: If the master.diff contains test or documentation changes:
+        - "Add tests for user authentication"
+        - "Add documentation for OAuth integration"
+
+        Create a detailed plan as an array of commit objects:
+        ```javascript
+        [
+            {num: 1, description: "Add user authentication models"},
+            {num: 2, description: "Implement OAuth token validation"}
+        ]
+        ```
+    }
+}
+"#;
+        let result = parse(input);
+        assert!(result.is_ok(), "Failed to parse backtick in prompt: {:?}", result);
+    }
 }
