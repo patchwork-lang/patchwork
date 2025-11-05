@@ -119,6 +119,11 @@ where
             Rule::False => ParserToken::False,
             Rule::Number => ParserToken::Number(text),
             Rule::Identifier => ParserToken::Identifier(text),
+            Rule::IdentifierCall => {
+                // IdentifierCall matches "identifier(" - strip the trailing (
+                let id_text = &text[..text.len() - 1];
+                ParserToken::IdentifierCall(id_text)
+            },
             Rule::Ellipsis => ParserToken::Ellipsis,
             Rule::Arrow => ParserToken::Arrow,
             Rule::Eq => ParserToken::Eq,

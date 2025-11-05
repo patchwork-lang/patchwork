@@ -53,6 +53,7 @@ extern {
         "false" => ParserToken::False,
         number => ParserToken::Number(<&'input str>),
         identifier => ParserToken::Identifier(<&'input str>),
+        identifier_call => ParserToken::IdentifierCall(<&'input str>),
 
         // Multi-character operators
         "..." => ParserToken::Ellipsis,
@@ -105,6 +106,14 @@ extern {
 // Grammar Rules
 // ====================
 
+// Helper: Accept either identifier or identifier_call and extract the name
+// This is used in contexts like "skill name(...)" where the lexer might produce
+// either "identifier" "(" or "identifier_call" depending on spacing
+IdentifierOrCall: &'input str = {
+    <identifier> => <>,
+    <identifier_call> => <>,
+};
+
 // Program: top-level items (with optional newlines between them - similar to StatementList)
 pub Program: Program<'input> = {
     newline* <head:Item> <tail:(newline+ <Item>)*> newline* end => {
@@ -144,21 +153,24 @@ ImportPath: ImportPath<'input> = {
 
 // Skill declaration: skill name(params) { body }
 SkillDecl: SkillDecl<'input> = {
-    "skill" <name:identifier> "(" <params:ParamList> ")" <body:Block> => {
+    // Accept both "skill test (" and "skill test("
+    "skill" <name:IdentifierOrCall> "("? <params:ParamList> ")" <body:Block> => {
         SkillDecl { name, params, body }
     },
 };
 
 // Task declaration: task name(params) { body }
 TaskDecl: TaskDecl<'input> = {
-    "task" <name:identifier> "(" <params:ParamList> ")" <body:Block> => {
+    // Accept both "task test (" and "task test("
+    "task" <name:IdentifierOrCall> "("? <params:ParamList> ")" <body:Block> => {
         TaskDecl { name, params, body }
     },
 };
 
 // Function declaration: fun name(params) { body }
 FunctionDecl: FunctionDecl<'input> = {
-    "fun" <name:identifier> "(" <params:ParamList> ")" <body:Block> => {
+    // Accept both "fun test (" and "fun test("
+    "fun" <name:IdentifierOrCall> "("? <params:ParamList> ")" <body:Block> => {
         FunctionDecl { name, params, body }
     },
 };
@@ -540,9 +552,20 @@ PostfixExpr: Expr<'input> = {
         field,
     },
 
-    // Function call: func(a, b, c)
-    <callee:PostfixExpr> "(" <args:ExprList> ")" => Expr::Call {
-        callee: Box::new(callee),
+    // Method call using identifier_call: obj.method(args)
+    // identifier_call already consumed "method(", so we need ")"
+    <object:PostfixExpr> "." <method:identifier_call> <args:ExprList> ")" => Expr::Call {
+        callee: Box::new(Expr::Member {
+            object: Box::new(object),
+            field: method,
+        }),
+        args,
+    },
+
+    // Function call using identifier_call in primary position: func(args)
+    // identifier_call already consumed "func(", so we just need args and ")"
+    <name:identifier_call> <args:ExprList> ")" => Expr::Call {
+        callee: Box::new(Expr::Identifier(name)),
         args,
     },
 

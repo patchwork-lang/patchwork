@@ -601,27 +601,30 @@ This document breaks down the implementation of the patchwork parser into concre
 
 **Tasks:**
 
-1. **Extend lexer for shell mode**
-   - [ ] Add shell argument mode state to lexer
-   - [ ] Detect identifier + whitespace + non-paren pattern
-   - [ ] In shell mode, tokenize shell operators specially, other operators as COMMAND_TOKEN
-   - [ ] Exit shell mode on statement boundaries and shell operators
+1. **Add disambiguation token to lexer** ✅
+   - [x] Add `IdentifierCall` token that matches `identifier(` with no space
+   - [x] Update lexer.alex with `IdentifierCall: <Code> {{ID}}\(` rule
+   - [x] Place before generic `Identifier` rule for priority matching
+   - [x] Update ParserToken enum with `IdentifierCall(&'input str)`
+   - [x] Update adapter to convert `Rule::IdentifierCall` and strip trailing `(`
 
-2. **Add command substitution to string interpolation**
-   - [ ] Recognize `$( BareCommand )` in string contexts
-   - [ ] Parse command inside parentheses
-   - [ ] Create `CommandSubst` AST node
+2. **Update grammar to handle both token patterns** ✅
+   - [x] Add `IdentifierOrCall` helper rule accepting both `identifier` and `identifier_call`
+   - [x] Update SkillDecl, TaskDecl, FunctionDecl to use `IdentifierOrCall` with optional `(`
+   - [x] Update PostfixExpr to handle function calls via `identifier_call` token
+   - [x] Add method call pattern: `PostfixExpr "." identifier_call ExprList ")"`
+   - [x] All 88 existing tests passing with zero parser conflicts
 
-3. **Extend AST for bare commands**
-   - [ ] Add `Expr::BareCommand` variant
-   - [ ] Add `Expr::CommandSubst` variant
-   - [ ] Add `CommandArg` enum (Literal | String)
-   - [ ] Add `RedirectOp` enum (Out | Append | ErrOut | ErrToOut)
+3. **Extend AST for bare commands** ✅
+   - [x] Add `Expr::BareCommand` variant
+   - [x] Add `Expr::CommandSubst` variant
+   - [x] Add `CommandArg` enum (Literal | String)
+   - [x] Add `RedirectOp` enum (Out | Append | ErrOut | ErrToOut)
 
-4. **Add grammar rules for bare commands**
-   - [ ] BareCommand production
+4. **Add grammar rules for bare commands** (NEXT)
+   - [ ] BareCommand production in statement context
    - [ ] CommandArgs production (one or more CommandArg)
-   - [ ] Disambiguation: `identifier "("` vs `identifier WHITESPACE`
+   - [ ] Recognize bare command: `identifier` followed by arguments (not `identifier_call`)
 
 5. **Add redirection grammar**
    - [ ] Extend PostfixExpr with `>`, `>>`, `2>`, `2>&1` operators

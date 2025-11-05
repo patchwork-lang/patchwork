@@ -43,6 +43,7 @@ pub enum ParserToken<'input> {
     False,
     Number(&'input str),
     Identifier(&'input str),
+    IdentifierCall(&'input str),  // identifier( with no space - function call
 
     // Multi-character operators
     Ellipsis,

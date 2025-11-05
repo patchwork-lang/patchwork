@@ -209,6 +209,28 @@ pub enum StringPart<'input> {
     Interpolation(Box<Expr<'input>>),
 }
 
+/// Command argument - either a literal string or an interpolated string
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommandArg<'input> {
+    /// Literal argument: `mkdir -p work_dir` → "-p" and "work_dir"
+    Literal(&'input str),
+    /// Interpolated string argument: `mkdir "${dir}"` → String with interpolation
+    String(StringLiteral<'input>),
+}
+
+/// Redirection operator for shell-style I/O redirection
+#[derive(Debug, Clone, PartialEq)]
+pub enum RedirectOp {
+    /// Standard output redirection: `>`
+    Out,
+    /// Append output redirection: `>>`
+    Append,
+    /// Stderr redirection: `2>`
+    ErrOut,
+    /// Stderr to stdout redirection: `2>&1`
+    ErrToOut,
+}
+
 /// Expression (Milestone 3: minimal set for statement support, expanded in Milestones 4-7)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr<'input> {
@@ -262,6 +284,16 @@ pub enum Expr<'input> {
     Ask(PromptBlock<'input>),
     /// Do expression: `do { ... }`
     Do(Block<'input>),
+    /// Bare command invocation: `mkdir -p work_dir`
+    BareCommand {
+        name: &'input str,
+        args: Vec<CommandArg<'input>>,
+    },
+    /// Command substitution: `$(date +%Y%m%d-%H%M%S)`
+    CommandSubst {
+        name: &'input str,
+        args: Vec<CommandArg<'input>>,
+    },
     /// Placeholder for unparsed expressions (temporary for incremental implementation)
     Placeholder(PhantomData<&'input ()>),
 }
