@@ -52,6 +52,15 @@ After multiple Prompt mode transitions, line 79 (containing 4 × `→` character
 
 **Our Usage Verified Correct:** Investigation of adapter code (lines 17-37) confirms proper UTF-8 handling. The conversion from (line, column) to byte offsets uses Rust's `char_indices()` iterator which correctly counts UTF-8 characters. The bug is entirely within parlex's `LexerCursor` column tracking.
 
+**Verification via parlex-calc Example:** Examined the official parlex-calc example from the parlex repository:
+- parlex-calc DOES use mode transitions (Expr ⇄ Comment)
+- parlex-calc tests ALL use ASCII-only content (no multi-byte UTF-8)
+- Their nested comment test with newlines works correctly (ASCII only)
+- **No workarounds found** - they haven't encountered the bug yet
+- Confirms bug only triggers with: mode transitions + multi-byte UTF-8 characters
+
+**Temporary Workaround (Applied):** Replaced Unicode arrows (`→` U+2192) with ASCII arrows (`->`) in example files (analyst.pw:79) to avoid triggering the bug. This stopgap works for our controlled examples but doesn't solve the underlying issue for user-provided content with multi-byte UTF-8 characters.
+
 **Proper Fix:** Fix parlex's `LexerCursor` to count UTF-8 characters instead of bytes for column positions. Options:
 1. Patch parlex to fix UTF-8 byte offset tracking across mode changes
 2. Switch to a different lexer that handles UTF-8 correctly
@@ -59,12 +68,12 @@ After multiple Prompt mode transitions, line 79 (containing 4 × `→` character
 4. Accept the workaround (skip invalid spans) as good enough
 
 **Impact:**
+- ~~Affects analyst.pw (1 Newline token skipped at line ~80)~~ **RESOLVED** by ASCII arrow workaround
+- Still a potential issue for user-provided content with multi-byte UTF-8
 - Silently skips malformed tokens (logs warning to stderr)
 - May cause parser to see incomplete token stream
-- Affects analyst.pw (1 Newline token skipped at line ~80)
-- Only triggers with specific complex patterns, not all interpolation
 
-**Test:** analyst.pw exhibits the bug, simplified tests don't reproduce it
+**Status:** Temporarily resolved for example files; underlying parlex bug remains
 
 ---
 
@@ -170,9 +179,14 @@ if start > end {
 ## Summary Statistics
 
 - **Active workarounds:** 3
+  1. Invalid span skipping (#1) - temporarily resolved for examples via ASCII arrows
+  2. Defensive span validation (#2)
+  3. Comment style (#3)
 - **Known issues without workarounds:** 2
+  5. Code fences in prompts - **currently blocking analyst.pw**
+  6. Multi-line ask blocks - blocking scribe.pw
 - **Files passing:** 2/4 historian files (main.pw, narrator.pw)
-- **Files failing:** 2/4 (analyst.pw, scribe.pw)
+- **Files failing:** 2/4 (analyst.pw: code fence issue, scribe.pw: multi-line ask)
 - **Test status:** 93 passing, 2 failing, 1 ignored
 
 ---
@@ -180,16 +194,14 @@ if start > end {
 ## Recommendations
 
 **Priority 1 - Blocking 2 Files:**
-1. Fix lexer span tracking in Prompt mode (#1, #2)
-2. Fix lexer Prompt mode state across newlines (#6)
+1. ~~Fix lexer span tracking in Prompt mode (#1, #2)~~ **Temporarily resolved** with ASCII arrows
+2. Fix code fences in prompts (#5) - **currently blocking analyst.pw**
+3. Fix lexer Prompt mode state across newlines (#6) - blocking scribe.pw
 
 **Priority 2 - Quality of Life:**
-3. Decide on `//` comment support (#3) - affects syntax consistency
-
-**Priority 3 - Advanced Features:**
-4. Code fences in prompts (#5) - affects documentation in prompts
+4. Decide on `//` comment support (#3) - affects syntax consistency
 
 **Long-term:**
-- Consider lexer rewrite with better mode handling
+- Report UTF-8 column tracking bug to parlex maintainers or consider alternative lexer
 - Add comprehensive lexer tests for mode transitions
 - Document lexer mode state machine formally

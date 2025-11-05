@@ -1,42 +1,38 @@
 {
-  "currentFocus": "CONFIRMED: UTF-8 bug is in parlex, not our usage!",
+  "currentFocus": "UTF-8 bug workaround applied - replaced Unicode arrows with ASCII",
   "recentAchievements": [
-    "Investigated parlex API documentation thoroughly",
-    "Confirmed Span contains Position (line, column) not byte offsets",
-    "Confirmed Position.column is 'character position' per docs",
-    "Found LexerCursor advances 'one byte at a time' (potential mismatch)",
-    "Verified our position_to_offset() correctly handles UTF-8 (uses char_indices)",
-    "Identified the bug: parlex likely increments column by bytes not UTF-8 chars",
-    "Conclusion: Our adapter usage is correct, parlex has UTF-8 column tracking bug"
+    "Investigated parlex-calc example for UTF-8 workarounds",
+    "Confirmed parlex-calc uses mode transitions but only ASCII content",
+    "Found no workarounds in parlex-calc - they haven't hit the bug",
+    "Verified bug requires BOTH mode transitions AND multi-byte UTF-8",
+    "Applied temporary workaround: replaced → with -> in analyst.pw",
+    "Updated parser-workarounds.md with investigation findings",
+    "Created docs/parlex-calc-utf8-test.md documenting the analysis",
+    "Confirmed analyst.pw now gets past UTF-8 issue, hits code fence issue (#5)"
   ],
   "nextSteps": [
-    "Document findings in parser-workarounds.md",
-    "Consider reporting bug to parlex maintainers",
-    "Options: patch parlex, switch lexers, or accept workaround",
-    "Move forward with interpreter/semantic analysis"
+    "Checkpoint and commit the UTF-8 workaround",
+    "Decision point: continue fixing lexer issues or move to semantic analysis",
+    "Code fence issue (#5) and multi-line ask (#6) still block 2/4 example files",
+    "Could report UTF-8 bug to parlex maintainers for long-term fix"
   ],
-  "collaborativeState": "Investigation complete! Traced the UTF-8 bug to its source. Parlex's LexerCursor advances byte-by-byte but should count UTF-8 characters for column positions. Our conversion code is correct - uses char_indices() for proper UTF-8 handling.",
+  "collaborativeState": "Made excellent progress! UTF-8 bug temporarily resolved for example files. Investigation of parlex-calc confirmed no API workarounds exist. Ready to checkpoint and decide next direction.",
   "keyInsights": [
-    "Position.column documented as 'character position in the line'",
-    "LexerCursor documented as advancing 'one byte at a time'",
-    "Mismatch: bytes advanced vs characters counted",
-    "Multi-byte char (→ = 3 bytes) likely increments column by 3 not 1",
-    "Our adapter correctly converts (line,col) → byte offset using char_indices()",
-    "After mode transitions, accumulated error causes column > line length",
-    "Trying to find character 96 on 80-character line = past end = backwards span",
-    "Bug is in parlex LexerCursor UTF-8 handling, not our code",
-    "Workaround (skip invalid spans) is appropriate given framework bug",
-    "Proper fix requires patching parlex or using different lexer"
+    "parlex-calc uses mode transitions (Expr ⇄ Comment) like we do",
+    "parlex-calc tests use only ASCII - haven't encountered UTF-8 bug",
+    "No workarounds exist in parlex public API",
+    "ASCII arrow workaround effective for controlled examples",
+    "User content with multi-byte UTF-8 will still trigger bug",
+    "Current blocker priority: code fences (#5) > multi-line ask (#6) > UTF-8"
   ],
   "criticalAwareness": [
-    "UTF-8 span tracking bug confirmed as parlex framework issue",
-    "Our adapter usage is correct per parlex API",
-    "Bug manifests only with multi-byte UTF-8 + mode transitions",
-    "Simplified cases don't trigger (not enough accumulated error)",
-    "analyst.pw triggers because: many transitions + 4× → characters",
-    "Workaround is acceptable - skip tokens with invalid spans",
-    "Alternative: could track column ourselves in LexerContext",
-    "But that would be duplicating what parlex should do",
-    "Better to document and move forward vs deep framework patch"
+    "UTF-8 bug temporarily resolved, not permanently fixed",
+    "Workaround only works for example files we control",
+    "Real users can still hit bug with multi-byte UTF-8 characters",
+    "Test status: 93/96 passing (2 failing, 1 ignored)",
+    "Example files: 2/4 passing (main.pw, narrator.pw)",
+    "analyst.pw now blocked by code fence issue, not UTF-8",
+    "scribe.pw still blocked by multi-line ask issue",
+    "Long-term: need to report parlex bug or find alternative lexer"
   ]
 }

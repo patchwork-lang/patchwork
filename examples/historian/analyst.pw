@@ -76,7 +76,7 @@ task analyst(session_id, work_dir, changeset_description) {
 
         Based on the diff and the changeset description, create a commit plan that:
         - Breaks changes into 5-15 logical commits
-        - Follows a progression (infrastructure → core → features → polish → tests/docs)
+        - Follows a progression (infrastructure -> core -> features -> polish -> tests/docs)
         - Each commit is independently reviewable
         - Tells a clear story
 
