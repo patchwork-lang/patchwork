@@ -77,30 +77,7 @@ if start > end {
 
 ---
 
-### 3. Example File Modifications
-**Files:** `examples/historian/scribe.pw`
-
-**Issue:** Lexer keyword ambiguity - `while(` tokenizes as `IdentifierCall` instead of `while` + `(`.
-
-**Workaround:** Added space in source file: `while(true)` → `while (true)`
-
-**Root Cause:** Alex lexer uses longest-match rule. `{{ID}}\(` matches `while(` (6 chars) better than just `while` (5 chars). Keywords need to be checked before IdentifierCall pattern.
-
-**Proper Fix:**
-- Option A: Lexer keyword disambiguation using reserved word list
-- Option B: Make IdentifierCall pattern explicitly exclude keywords
-- Option C: Grammar accepts both patterns and handles in semantic analysis
-
-**Impact:**
-- Requires specific formatting in source files
-- `if(`, `while(`, `for(` won't parse without spaces
-- Inconsistent with common programming style
-
-**Files affected:** scribe.pw (changed line 20)
-
----
-
-### 4. Comment Style Changes
+### 3. Comment Style Changes
 **Files:** `examples/historian/scribe.pw`
 
 **Issue:** Language only supports `#` comments, not `//` comments.
@@ -167,15 +144,24 @@ if start > end {
 
 **Status:** ✅ Properly fixed, not a workaround.
 
+### Keyword Ambiguity (IdentifierCall)
+**Fixed in:** Commit "Eliminate IdentifierCall token"
+
+**Issue:** `while(` tokenized as `IdentifierCall` instead of `while` + `(` due to longest-match rule.
+
+**Solution:** Eliminated `IdentifierCall` token and bare command syntax. All shell commands now require explicit `$` prefix. Function calls use standard `identifier "(" args ")"` parsing.
+
+**Status:** ✅ Properly fixed, not a workaround.
+
 ---
 
 ## Summary Statistics
 
-- **Active workarounds:** 4
+- **Active workarounds:** 3
 - **Known issues without workarounds:** 2
-- **Files passing with workarounds:** 2/4 historian files (main.pw, narrator.pw)
+- **Files passing:** 2/4 historian files (main.pw, narrator.pw)
 - **Files failing:** 2/4 (analyst.pw, scribe.pw)
-- **Test status:** 95 passing, 1 failing, 1 ignored
+- **Test status:** 93 passing, 2 failing, 1 ignored
 
 ---
 
@@ -186,11 +172,10 @@ if start > end {
 2. Fix lexer Prompt mode state across newlines (#6)
 
 **Priority 2 - Quality of Life:**
-3. Fix keyword ambiguity (#3) - affects code style
-4. Decide on `//` comment support (#4) - affects syntax consistency
+3. Decide on `//` comment support (#3) - affects syntax consistency
 
 **Priority 3 - Advanced Features:**
-5. Code fences in prompts (#5) - affects documentation in prompts
+4. Code fences in prompts (#5) - affects documentation in prompts
 
 **Long-term:**
 - Consider lexer rewrite with better mode handling

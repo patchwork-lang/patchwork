@@ -2744,70 +2744,9 @@ skill rewriting_git_branch(changeset_description) {
     // Milestone 10: Bare Command Tests
     // ========================================
 
-    #[test]
-    fn test_bare_command_in_task() {
-        let input = r#"
-task test() {
-    mkdir work_dir
-}
-"#;
-        let result = parse(input);
-        assert!(result.is_ok(), "Failed to parse task with bare command: {:?}", result);
-
-        let program = result.unwrap();
-        assert_eq!(program.items.len(), 1);
-
-        match &program.items[0] {
-            Item::Task(task) => {
-                assert_eq!(task.name, "test");
-                assert_eq!(task.body.statements.len(), 1);
-
-                match &task.body.statements[0] {
-                    Statement::Expr(Expr::BareCommand { name, args }) => {
-                        assert_eq!(*name, "mkdir");
-                        assert_eq!(args.len(), 1);
-                        match &args[0] {
-                            CommandArg::Literal(arg) => assert_eq!(*arg, "work_dir"),
-                            _ => panic!("Expected literal argument"),
-                        }
-                    }
-                    other => panic!("Expected bare command, got: {:?}", other),
-                }
-            }
-            _ => panic!("Expected task"),
-        }
-    }
-
-    #[test]
-    fn test_bare_command_with_string() {
-        let input = r#"
-task test() {
-    echo "Hello World"
-}
-"#;
-        let result = parse(input);
-        assert!(result.is_ok(), "Failed to parse bare command with string: {:?}", result);
-
-        let program = result.unwrap();
-        match &program.items[0] {
-            Item::Task(task) => {
-                match &task.body.statements[0] {
-                    Statement::Expr(Expr::BareCommand { name, args }) => {
-                        assert_eq!(*name, "echo");
-                        assert_eq!(args.len(), 1);
-                        match &args[0] {
-                            CommandArg::String(s) => {
-                                assert_eq!(s.parts.len(), 1);
-                            }
-                            _ => panic!("Expected string argument"),
-                        }
-                    }
-                    other => panic!("Expected bare command, got: {:?}", other),
-                }
-            }
-            _ => panic!("Expected task"),
-        }
-    }
+    // Note: test_bare_command_in_task and test_bare_command_with_string removed
+    // Bare commands without $ prefix are no longer supported
+    // All shell commands now require explicit $ prefix
 
     #[test]
     #[ignore] // TODO: Fix lexer issues with prompt mode

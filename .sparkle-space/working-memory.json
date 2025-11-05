@@ -1,46 +1,45 @@
 {
-  "currentFocus": "BREAKTHROUGH: Identified root cause of invalid spans - UTF-8 + mode transitions!",
+  "currentFocus": "MAJOR SIMPLIFICATION: Eliminated IdentifierCall token! Parser is now cleaner and more standard.",
   "recentAchievements": [
-    "Deep investigation with debug logging revealed exact span tracking failure",
-    "Discovered line 79 has 4× → (U+2192) characters = 3 bytes each = 12 bytes but 4 columns",
-    "ROOT CAUSE: parlex UTF-8 position tracking breaks after mode transitions",
-    "The lexer tracks positions as line/column but spans are byte offsets",
-    "After mode transitions, conversion between positions and byte offsets gets corrupted",
-    "Multi-byte UTF-8 characters cause position accumulator to go negative → backwards spans",
-    "Updated parser-workarounds.md with technical details of UTF-8 bug",
-    "Fixed 3 lexer test expectations (IdentifierCall due to longest-match)",
-    "All lexer tests now pass (57/57)",
-    "Parser tests: 95/97 passing (2 known issues: code fences, multi-line ask)"
+    "Removed IdentifierCall token from lexer completely",
+    "Removed bare command syntax (identifier args) from parser",
+    "Implemented standard function call parsing: identifier '(' args ')'",
+    "Verified all example files use explicit $ prefix (no bare commands found)",
+    "Removed 2 obsolete tests for bare commands without $ prefix",
+    "Fixed 2 lexer tests to expect Identifier + LParen instead of IdentifierCall",
+    "All tests passing: 57/57 lexer, 93/95 parser (2 known issues)",
+    "main.pw and narrator.pw still parse correctly ✅",
+    "Updated workarounds.md: removed #3, moved to Historical Workarounds",
+    "Active workarounds reduced from 4 to 3"
   ],
   "nextSteps": [
-    "Checkpoint and commit UTF-8 investigation findings",
-    "Decide on fix approach: parlex patch vs workaround vs different lexer",
-    "Option A: Patch parlex UTF-8 handling (complex, requires parlex internals)",
-    "Option B: Accept workaround (skip invalid spans) as good enough",
-    "Option C: Move to next phase (semantic analysis) with current parser",
-    "Clean up: Remove workarounds that are properly fixed"
+    "Commit the simplification",
+    "Decide on next direction: more parser work OR move to semantic analysis",
+    "Consider: fixing remaining lexer issues (span tracking, multi-line prompts)",
+    "Alternative: Move forward with interpreter/type checker"
   ],
-  "collaborativeState": "Major breakthrough! After adding detailed logging, discovered the invalid spans are caused by parlex's UTF-8 byte offset tracking getting corrupted after mode transitions. The → character (3 bytes, 1 column) accumulates error that eventually produces backwards spans.",
+  "collaborativeState": "Excellent call! Your insight to eliminate IdentifierCall was spot-on. We removed a complex workaround by making all shell commands explicit with $. The parser is now simpler, more standard, and the longest-match issue is completely gone.",
   "keyInsights": [
-    "Invalid span root cause: parlex UTF-8 position tracking + mode transitions",
-    "Multi-byte characters (→ = 3 bytes) vs column count (1) creates byte offset errors",
-    "Position accumulator goes negative after many transitions → backwards spans (2781..2774)",
-    "This is likely a parlex framework bug, not our lexer code",
-    "Test failures for IdentifierCall were due to longest-match (func( → IdentifierCall)",
-    "IdentifierCall affects ALL function calls in Code mode, not just keywords",
-    "Shell mode ${} interpolation only works inside quoted strings (actual usage pattern)",
-    "workarounds.md tracks: issue, root cause, proper fix options, impact",
-    "95/97 tests passing with 4 active workarounds + 2 unfixed issues",
-    "Deep investigation tools: debug logging in lexer action() function"
+    "Explicit prefixes eliminate ambiguity - no whitespace sensitivity needed",
+    "Example files already used $ prefix everywhere - zero changes needed!",
+    "IdentifierCall was attempting to solve ambiguity via lexer longest-match",
+    "Better solution: require explicit syntax ($) and use standard grammar",
+    "Function calls now work uniformly: f(x) and f (x) both valid",
+    "Keywords work without spacing: while(true) now parses correctly",
+    "Removed technical debt and complexity for simpler, cleaner design",
+    "3 active workarounds remain (2 with solutions, 1 just comment style)",
+    "Test count: 93/95 parser (2 known failures), 57/57 lexer",
+    "Design principle: Explicit syntax beats implicit disambiguation"
   ],
   "criticalAwareness": [
-    "UTF-8 bug is in parlex, not our code - fixing requires patching framework",
-    "Workaround (skip invalid spans) is effective but loses tokens",
-    "analyst.pw: invalid span + code fence issue (2 separate problems)",
-    "scribe.pw: multi-line ask blocks (Prompt mode doesn't maintain across newlines)",
-    "Trade-offs: deep parlex fix vs workaround vs alternative lexer generator",
-    "Current parser is good enough for 2/4 historian files (main.pw, narrator.pw)",
-    "IdentifierCall longest-match affects all ID( patterns (while(, func(, etc)",
-    "All issues documented with technical details for future decisions"
+    "Major simplification complete - IdentifierCall removed entirely",
+    "All shell commands now require explicit $ prefix (clearer intent)",
+    "Parser uses standard LR(1) function call parsing",
+    "No longer fighting with lexer longest-match rules",
+    "Example files unchanged - they already followed best practices",
+    "Workarounds reduced: 4 → 3 active (span tracking, defensive checks, comment style)",
+    "2 known unfixed issues remain: UTF-8 span tracking, multi-line prompts",
+    "Parser is production-ready for files like main.pw and narrator.pw",
+    "Trade-off accepted: require $ prefix for cleaner parser design"
   ]
 }

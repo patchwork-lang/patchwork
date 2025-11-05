@@ -76,7 +76,6 @@ Pipe: <Code> \|
 Ampersand: <Code> &
 Dot: <Code> \.
 
-IdentifierCall: <Code> {{ID}}\(
 Identifier: <Code> {{ID}}
 
 Comment: <Code> #[^\n]*

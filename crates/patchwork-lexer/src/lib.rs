@@ -1160,7 +1160,8 @@ var session_id = "historian-${timestamp}""#;
             Rule::StringText,     // "Result: "
             Rule::Dollar,
             Rule::LBrace,
-            Rule::IdentifierCall, // func( - longest match wins
+            Rule::Identifier,     // func
+            Rule::LParen,         // (
             Rule::Identifier,     // x
             Rule::Comma,
             Rule::Whitespace,
@@ -1183,7 +1184,8 @@ var session_id = "historian-${timestamp}""#;
             Rule::StringText,     // "Outer "
             Rule::Dollar,
             Rule::LBrace,
-            Rule::IdentifierCall, // f( - longest match wins
+            Rule::Identifier,     // f
+            Rule::LParen,         // (
             Rule::StringStart,    // nested string
             Rule::StringText,     // "inner"
             Rule::StringEnd,      // nested string end

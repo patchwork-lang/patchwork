@@ -53,7 +53,6 @@ extern {
         "false" => ParserToken::False,
         number => ParserToken::Number(<&'input str>),
         identifier => ParserToken::Identifier(<&'input str>),
-        identifier_call => ParserToken::IdentifierCall(<&'input str>),
 
         // Multi-character operators
         "..." => ParserToken::Ellipsis,
@@ -123,13 +122,7 @@ extern {
 // Grammar Rules
 // ====================
 
-// Helper: Accept either identifier or identifier_call and extract the name
-// This is used in contexts like "skill name(...)" where the lexer might produce
-// either "identifier" "(" or "identifier_call" depending on spacing
-IdentifierOrCall: &'input str = {
-    <identifier> => <>,
-    <identifier_call> => <>,
-};
+// Note: IdentifierOrCall helper removed - no longer needed without IdentifierCall token
 
 // Helper: Accept identifier or keywords (for object keys and pattern fields)
 // JavaScript/TypeScript allow keywords as unquoted object keys
@@ -205,7 +198,7 @@ ImportPath: ImportPath<'input> = {
 // Skill declaration: skill name(params) { body }
 SkillDecl: SkillDecl<'input> = {
     // Accept both "skill test (" and "skill test("
-    "skill" <name:IdentifierOrCall> "("? <params:ParamList> ")" <body:Block> => {
+    "skill" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
         SkillDecl { name, params, body }
     },
 };
@@ -213,7 +206,7 @@ SkillDecl: SkillDecl<'input> = {
 // Task declaration: task name(params) { body }
 TaskDecl: TaskDecl<'input> = {
     // Accept both "task test (" and "task test("
-    "task" <name:IdentifierOrCall> "("? <params:ParamList> ")" <body:Block> => {
+    "task" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
         TaskDecl { name, params, body }
     },
 };
@@ -221,7 +214,7 @@ TaskDecl: TaskDecl<'input> = {
 // Function declaration: fun name(params) { body }
 FunctionDecl: FunctionDecl<'input> = {
     // Accept both "fun test (" and "fun test("
-    "fun" <name:IdentifierOrCall> "("? <params:ParamList> ")" <body:Block> => {
+    "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
         FunctionDecl { name, params, body }
     },
 };
@@ -392,20 +385,11 @@ ShellStmt: Statement<'input> = {
     },
 };
 
-// Command or expression statement (Milestone 10)
-// Factored to avoid LR(1) conflicts between bare commands and identifier expressions
-// Examples:
-//   mkdir -p work_dir   → BareCommand { name: "mkdir", args: ["-", "p", "work_dir"] }
-//   x + y               → Binary operation
-//   foo                 → Identifier expression
+// Expression statement (Milestone 10)
+// Note: Bare commands without $ prefix removed - all shell commands require explicit prefix
+// This simplifies parsing and eliminates IdentifierCall token need
 CommandOrExprStmt: Statement<'input> = {
-    // Bare command: identifier followed by at least one argument
-    // This must come first to prefer bare command interpretation
-    <name:identifier> <args:CommandArgs> => {
-        Statement::Expr(Expr::BareCommand { name, args })
-    },
-
-    // Regular expression statement (includes standalone identifiers)
+    // Expression statement (includes standalone identifiers, function calls, etc.)
     <Expr> => Statement::Expr(<>),
 };
 
@@ -647,20 +631,10 @@ PostfixExpr: Expr<'input> = {
         field,
     },
 
-    // Method call using identifier_call: obj.method(args)
-    // identifier_call already consumed "method(", so we need ")"
-    <object:PostfixExpr> "." <method:identifier_call> <args:ExprList> ")" => Expr::Call {
-        callee: Box::new(Expr::Member {
-            object: Box::new(object),
-            field: method,
-        }),
-        args,
-    },
-
-    // Function call using identifier_call in primary position: func(args)
-    // identifier_call already consumed "func(", so we just need args and ")"
-    <name:identifier_call> <args:ExprList> ")" => Expr::Call {
-        callee: Box::new(Expr::Identifier(name)),
+    // Function call: func(args) or obj.method(args)
+    // Works for both regular calls and method calls
+    <callee:PostfixExpr> "(" <args:ExprList> ")" => Expr::Call {
+        callee: Box::new(callee),
         args,
     },
 
