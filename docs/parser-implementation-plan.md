@@ -603,23 +603,25 @@ This document breaks down the implementation of the patchwork parser into concre
 
 1. **Add disambiguation token to lexer** ✅
    - [x] Add `IdentifierCall` token that matches `identifier(` with no space
-   - [x] Update lexer.alex with `IdentifierCall: <Code> {{ID}}\(` rule
+   - [x] Update lexer.alex with `IdentifierCall: <Code> {{ID}}\(` rule (line 76)
    - [x] Place before generic `Identifier` rule for priority matching
-   - [x] Update ParserToken enum with `IdentifierCall(&'input str)`
+   - [x] Update ParserToken enum with `IdentifierCall(&'input str)` (token.rs:46)
    - [x] Update adapter to convert `Rule::IdentifierCall` and strip trailing `(`
 
 2. **Update grammar to handle both token patterns** ✅
-   - [x] Add `IdentifierOrCall` helper rule accepting both `identifier` and `identifier_call`
-   - [x] Update SkillDecl, TaskDecl, FunctionDecl to use `IdentifierOrCall` with optional `(`
-   - [x] Update PostfixExpr to handle function calls via `identifier_call` token
-   - [x] Add method call pattern: `PostfixExpr "." identifier_call ExprList ")"`
-   - [x] All 88 existing tests passing with zero parser conflicts
+   - [x] Add `IdentifierOrCall` helper rule accepting both `identifier` and `identifier_call` (patchwork.lalrpop:126-129)
+   - [x] Update SkillDecl to use `IdentifierOrCall` with optional `(` (line 176)
+   - [x] Update TaskDecl to use `IdentifierOrCall` with optional `(` (line 184)
+   - [x] Update FunctionDecl to use `IdentifierOrCall` with optional `(` (line 192)
+   - [x] Update PostfixExpr to handle function calls via `identifier_call` token (line 622)
+   - [x] Add method call pattern: `PostfixExpr "." identifier_call ExprList ")"` (line 612)
+   - [x] All 94 tests passing with zero parser conflicts
 
 3. **Extend AST for bare commands** ✅
-   - [x] Add `Expr::BareCommand` variant
-   - [x] Add `Expr::CommandSubst` variant
-   - [x] Add `CommandArg` enum (Literal | String)
-   - [x] Add `RedirectOp` enum (Out | Append | ErrOut | ErrToOut)
+   - [x] Add `Expr::BareCommand` variant (ast.rs:288-291)
+   - [x] Add `Expr::CommandSubst` variant (ast.rs:293-296)
+   - [x] Add `CommandArg` enum (Literal | String) (ast.rs:214-221)
+   - [x] Add `RedirectOp` enum (Out | Append | ErrOut | ErrToOut) (ast.rs:223-230)
 
 4. **Add grammar rules for bare commands** (NEXT)
    - [ ] BareCommand production in statement context
