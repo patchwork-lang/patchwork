@@ -591,45 +591,85 @@ This document breaks down the implementation of the patchwork parser into concre
 
 ---
 
-### Milestone 10: Full Historian Example Validation
+### Milestone 10: Bare Command Expressions
 
-**Goal:** Successfully parse all four historian example files and validate AST structure.
+**Goal:** Parse shell-style bare command invocations with arguments and redirections.
+
+**Status:** IN PROGRESS
+
+**Design:** See [parser-design.md](parser-design.md#bare-command-expressions) for complete design rationale, semantic model, and disambiguation strategy.
 
 **Tasks:**
 
-1. **Parse all example files**
-   - [ ] Test: `examples/historian/main.pw` parses completely
-   - [ ] Test: `examples/historian/analyst.pw` parses completely
-   - [ ] Test: `examples/historian/narrator.pw` parses completely
-   - [ ] Test: `examples/historian/scribe.pw` parses completely
+1. **Extend lexer for shell mode**
+   - [ ] Add shell argument mode state to lexer
+   - [ ] Detect identifier + whitespace + non-paren pattern
+   - [ ] In shell mode, tokenize shell operators specially, other operators as COMMAND_TOKEN
+   - [ ] Exit shell mode on statement boundaries and shell operators
 
-2. **Validate AST structure**
-   - [ ] Write test helper to dump AST as formatted output
-   - [ ] Verify key structures parse correctly:
-     - main.pw: skill declaration with await task calls
-     - analyst.pw: think/ask expressions, variable destructuring
-     - narrator.pw: for loop, type declarations, function definition
-     - scribe.pw: while loop, nested do blocks in think
+2. **Add command substitution to string interpolation**
+   - [ ] Recognize `$( BareCommand )` in string contexts
+   - [ ] Parse command inside parentheses
+   - [ ] Create `CommandSubst` AST node
 
-3. **Compare with lexer tests**
-   - [ ] Ensure parser tests align with existing lexer tests
-   - [ ] Both should successfully process the same examples
-   - [ ] Parser produces meaningful AST, not just tokens
+3. **Extend AST for bare commands**
+   - [ ] Add `Expr::BareCommand` variant
+   - [ ] Add `Expr::CommandSubst` variant
+   - [ ] Add `CommandArg` enum (Literal | String)
+   - [ ] Add `RedirectOp` enum (Out | Append | ErrOut | ErrToOut)
 
-4. **Error reporting test**
-   - [ ] Test intentionally malformed input
-   - [ ] Verify error messages are helpful
-   - [ ] Check error position tracking
+4. **Add grammar rules for bare commands**
+   - [ ] BareCommand production
+   - [ ] CommandArgs production (one or more CommandArg)
+   - [ ] Disambiguation: `identifier "("` vs `identifier WHITESPACE`
 
-5. **Performance check**
-   - [ ] Parse all four files in reasonable time (<100ms combined)
-   - [ ] No unnecessary allocations or copies
+5. **Add redirection grammar**
+   - [ ] Extend PostfixExpr with `>`, `>>`, `2>`, `2>&1` operators
+   - [ ] Ensure pipe `|` works in command context
+
+6. **Test bare command parsing**
+   - [ ] Simple command: `mkdir work_dir`
+   - [ ] Command with flags: `mkdir -p work_dir`
+   - [ ] Complex args: `date +%Y%m%d-%H%M%S`
+   - [ ] Command with interpolation: `mkdir "${work_dir}"`
+   - [ ] Command substitution: `var x = $(date +%s)`
+   - [ ] Redirections: `echo "text" > file`
+   - [ ] Pipes: `cat file | grep "pattern"`
+   - [ ] Disambiguation: `f(x)` vs `f x` vs `f (x)`
+   - [ ] Command in conditional: `if ! git diff_index --quiet HEAD -- { ... }`
+   - [ ] Stderr redirection: `command 2>&1`
+
+7. **Parse all historian example files**
+   - [ ] `examples/historian/main.pw` parses completely
+   - [ ] `examples/historian/analyst.pw` parses completely
+   - [ ] `examples/historian/narrator.pw` parses completely
+   - [ ] `examples/historian/scribe.pw` parses completely
+
+8. **Validate AST structure**
+   - [ ] Write test helper to dump AST
+   - [ ] Verify key structures from historian examples
+
+9. **Error reporting**
+   - [ ] Test invalid command syntax
+   - [ ] Test helpful error messages
+
+**Implementation notes:**
+- See [parser-design.md](parser-design.md#bare-command-expressions) for:
+  - Semantic model (commands are scoped variables)
+  - Whitespace-sensitive disambiguation strategy
+  - Shell operator handling (context-dependent meanings)
+  - Type system role in disambiguating `>` and `|`
+  - Lexer mode switching details
+- `eval` deferred - needs better portable syntax
+- Pipe `|` reuses existing `BinOp::Pipe`, type system disambiguates
 
 **Success criteria:**
 - ✅ All four historian files parse without errors
-- ✅ AST structure matches expected program semantics
-- ✅ Error messages are clear and helpful
-- ✅ Parser performance is acceptable
+- ✅ Bare commands parse correctly with arguments
+- ✅ Command substitution `$(...)` works
+- ✅ Redirections parse correctly
+- ✅ Disambiguation works (function call vs bare command)
+- ✅ Zero parser conflicts maintained
 
 ---
 

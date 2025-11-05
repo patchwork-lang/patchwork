@@ -525,15 +525,306 @@ patchwork-lexer = { path = "../patchwork-lexer" }
 lalrpop = "0.20"
 ```
 
+## Bare Command Expressions
+
+### Design Overview
+
+Bare commands provide shell-like syntax for invoking executables and functions in a portable, OS-agnostic way. This is a key patchwork feature enabling seamless mixing of external process invocations and in-process function calls.
+
+### Semantic Model
+
+**Command names are variables in scope:**
+- `mkdir` is not a hardcoded shell command - it's a variable that must be in scope
+- Type can be:
+  - `Cmd` - executable that runs in external process
+  - `(string...) -> Proc` - patchwork function taking strings, producing process
+  - Future: functions producing in-process results
+
+**Arguments are implicitly quoted:**
+- Every argument is treated as a string (bash-style)
+- No evaluation as patchwork expressions unless explicitly quoted
+
+**Standard library provides portability:**
+- Common commands (`mkdir`, `echo`, `git`, `cat`, etc.) available via stdlib
+- Standard prelude auto-imports most common commands
+- Users can define their own command abstractions
+
+**Examples:**
+```patchwork
+mkdir -p work_dir                    # Command with flag and argument
+echo "Created session: ${session_id}" # Command with interpolated string
+git checkout "${clean_branch}"       # Command with interpolated argument
+var timestamp = $(date +%Y%m%d-%H%M%S) # Command substitution
+cat({...}) > "${work_dir}/state.json"  # Function-style with redirection
+```
+
+### Disambiguation Strategy: Whitespace-Sensitive Parsing
+
+**The core challenge:** How to distinguish:
+- `f(x, y, z)` - function call
+- `f x y z` - bare command invocation
+- `f` - variable reference
+- `f (x)` - bare command with parenthesized expression argument
+
+**Solution:** Use whitespace sensitivity
+- `f(...)` - function call (no space before `(`)
+- `f ...` - bare command (space before first argument)
+- This mirrors function call conventions in languages like Swift and Python linters
+
+**Lexical mode switching:**
+- When lexer sees `IDENTIFIER WHITESPACE (not-lparen)`, enter "shell argument mode"
+- In shell mode, tokenization changes (see below)
+
+### Command Substitution: `$(...)` vs `${...}`
+
+Two interpolation syntaxes:
+- `${expr}` - interpolate arbitrary patchwork expression (M6 feature)
+- `$(command args)` - execute bare command, capture stdout (new in M10)
+
+**Relationship:**
+- `$(...)` requires bare command inside
+- `${...}` allows any expression, including bare commands
+- This makes `$(...)` somewhat redundant but familiar from bash
+- Keep both for ergonomics
+
+### Context Sensitivity
+
+Bare commands work in multiple contexts:
+
+**Statement position:**
+```patchwork
+mkdir -p work_dir
+echo "Starting analysis"
+```
+
+**Expression position:**
+```patchwork
+var branch = $(git rev_parse --abbrev_ref HEAD)
+if ! git diff_index --quiet HEAD -- { ... }
+log(session_id, "ANALYST", "message")  # Arguments can be bare commands
+```
+
+**Redirections work in both contexts:**
+```patchwork
+# Statement
+echo "done" > "${work_dir}/status"
+
+# Expression
+var diff = cat(file) | grep "pattern"
+```
+
+### Shell Operator Handling
+
+When parsing bare command arguments, operators have context-dependent meanings:
+
+**Shell operators** (special in command context):
+- `|` - pipe (NOT array filter)
+- `>` - output redirection (NOT comparison)
+- `<` - input redirection
+- `>>` - append redirection
+- `2>` - stderr redirection
+- `2>&1` - stderr to stdout
+- `&&`, `||` - command chaining (same as logical operators)
+- `&` - background process
+
+**Regular operators** (become part of argument strings):
+- `+` - not addition, part of argument like `+%Y%m%d`
+- `-` - not subtraction, flag prefix like `-p` or `--abbrev_ref`
+- `..` - not range, part of argument like `HEAD..origin/main`
+
+**Type system disambiguates:**
+- `int > int` → comparison operator (returns bool)
+- `Proc > string` → redirection operator (returns Proc)
+- `[T] | (T -> U)` → array filter pipe
+- `Proc | Proc` → process pipe
+
+### Argument Parsing Rules
+
+**Implicit quoting:**
+Every argument is an implicitly quoted string:
+```patchwork
+mkdir -p work_dir
+# Parses as: mkdir(["-p", "work_dir"])
+
+date +%Y%m%d-%H%M%S
+# Parses as: date(["+%Y%m%d-%H%M%S"])
+```
+
+**Quote handling:**
+- Double quotes `"..."` - allow spaces and interpolation
+- Single quotes `'...'` - literal strings, no interpolation (future feature)
+- Unquoted - identifier-like tokens, no spaces
+
+**Variable references require quotes:**
+```patchwork
+mkdir -p some_dir          # Literal string "some_dir"
+mkdir -p $some_dir         # ERROR: not in string context
+mkdir -p "$some_dir"       # Interpolates variable value
+mkdir -p "${some_dir}"     # Also interpolates variable value
+```
+
+### Redirection and Pipes
+
+**Redirection forms:**
+- `expr > file` - stdout to file
+- `expr >> file` - append stdout to file
+- `expr 2> file` - stderr to file
+- `expr 2>&1` - stderr to stdout
+- `expr | command` - pipe stdout to command
+
+**Type-based disambiguation:**
+The same operators (`>`, `|`) serve different purposes based on context. The type system resolves ambiguity:
+```patchwork
+# Comparison
+if x > 5 { ... }            # Type: int > int → bool
+
+# Redirection
+echo "done" > file          # Type: Proc > string → Proc
+
+# Array filter
+items | filter_fn           # Type: [T] | (T -> U) → [U]
+
+# Process pipe
+cat file | grep "pattern"   # Type: Proc | Proc → Proc
+```
+
+### Special Case: Overloaded Functions
+
+Some stdlib functions work in multiple ways:
+
+**`cat` function:**
+- `cat(file)` - read file (function call syntax)
+- `cat file` - read file (bare command syntax)
+- `cat({x, y})` - serialize object to JSON (function call syntax)
+
+Example combining function call with redirection:
+```patchwork
+cat({
+    session_id,
+    timestamp,
+    original: current_branch,
+    work_dir
+}) > "${work_dir}/state.json"
+```
+
+This uses function call syntax `cat(...)` (no space before paren), then redirects the result.
+
+### Lexer Mode Switching
+
+**Shell argument mode:**
+
+When lexer detects bare command context (identifier + whitespace + non-paren):
+1. **Enter shell mode**
+2. **Tokenize differently:**
+   - Shell operators (`|`, `>`, `<`, `&&`, `||`, `&`, etc.) remain special tokens
+   - Other operators (`+`, `-`, `*`, etc.) become part of `COMMAND_TOKEN`
+   - Whitespace separates arguments
+   - Quotes start string literals (with interpolation working normally)
+3. **Exit shell mode** on:
+   - Shell operator (but continue for next command in pipe/chain)
+   - Statement terminator (`;`, newline, `}`)
+   - Close paren `)` (for command substitution)
+
+**Example tokenization:**
+
+```patchwork
+date +%Y%m%d-%H%M%S
+```
+Tokens: `IDENTIFIER("date")`, `COMMAND_TOKEN("+%Y%m%d-%H%M%S")`
+
+```patchwork
+git diff "${base}..HEAD" > file.diff
+```
+Tokens:
+- `IDENTIFIER("git")`
+- `COMMAND_TOKEN("diff")`
+- `STRING_START`, `STRING_TEXT("")`, `DOLLAR`, `LBRACE`, `IDENTIFIER("base")`, `RBRACE`, `STRING_TEXT("..HEAD")`, `STRING_END`
+- `REDIRECT_OUT(">")`
+- `STRING_START`, `STRING_TEXT("file.diff")`, `STRING_END`
+
+### AST Representation
+
+**New expression variants:**
+```rust
+pub enum Expr<'input> {
+    // ... existing variants ...
+
+    /// Bare command invocation: mkdir -p work_dir
+    BareCommand {
+        name: &'input str,
+        args: Vec<CommandArg<'input>>,
+    },
+
+    /// Command substitution: $(command args)
+    CommandSubst {
+        name: &'input str,
+        args: Vec<CommandArg<'input>>,
+    },
+}
+```
+
+**New AST types:**
+```rust
+/// Command argument (implicitly quoted string)
+pub enum CommandArg<'input> {
+    /// Unquoted identifier-like token: work_dir, -p, +%Y%m%d
+    Literal(&'input str),
+
+    /// Quoted string with optional interpolation: "${work_dir}/state.json"
+    String(StringLiteral<'input>),
+}
+
+/// Redirection operators
+pub enum RedirectOp {
+    Out,          // >
+    Append,       // >>
+    ErrOut,       // 2>
+    ErrToOut,     // 2>&1
+}
+```
+
+**Note on pipes:**
+- Pipe `|` reuses existing `BinOp::Pipe`
+- Type system disambiguates array filter vs process pipe
+- May split into separate AST nodes if this proves problematic
+
+### Design Decisions
+
+**Q1: Should we implement `eval` in M10?**
+- **Decision:** No, defer. The `eval` usage in scribe.pw needs a better portable syntax.
+- Focus on core bare command functionality first.
+
+**Q2: How to handle `cat({...}) > file` ambiguity?**
+- **Decision:** Type system disambiguates.
+- `cat(...)` is function call (no space), returns serializable content
+- `>` operator typed to work with redirection when LHS is `Proc` or serializable type
+
+**Q3: Pipe `|` - reuse BinOp or separate?**
+- **Decision:** Keep existing `BinOp::Pipe`, type system distinguishes uses
+- Can split into `BinOp::Pipe` and `Expr::ProcessPipe` later if needed
+
+**Q4: Lexer mode switching vs parser lookahead?**
+- **Decision:** Lexer mode switching
+- Cleaner separation: lexer handles shell tokenization, parser handles structure
+- Can fall back to parser-level disambiguation if lexer approach proves complex
+
+**Q5: Single quotes for literal strings?**
+- **Decision:** Defer for now, not in historian examples
+- Can add later if needed
+
 ## Summary
 
 This design establishes:
 1. ✅ **Integration approach**: External lexer adapter pattern with lalrpop
 2. ✅ **Token strategy**: Lifetime-carrying tokens for efficiency
 3. ✅ **AST structure**: Hierarchical nodes representing program semantics
-4. ✅ **Implementation plan**: 8 milestones from structure to full features
-5. ✅ **Testing strategy**: Per-milestone validation against historian examples
+4. ✅ **Bare commands**: Shell-like syntax with portable semantics and whitespace-sensitive disambiguation
+5. ✅ **Implementation plan**: Progressive milestones from structure to full features
+6. ✅ **Testing strategy**: Per-milestone validation against historian examples
 
-The key innovation of patchwork - seamlessly mixing prompts and code via `think`/`ask`/`do` - is captured in the `PromptBlock` and `Expr::Think`/`Expr::Ask`/`Expr::Do` AST nodes.
+The key innovations of patchwork:
+- Seamlessly mixing prompts and code via `think`/`ask`/`do` - captured in `PromptBlock` and related AST nodes
+- Shell-like command syntax with OS-agnostic portability - captured in `BareCommand` and command argument handling
+- Type-based operator disambiguation - enabling `>` and `|` to serve multiple purposes
 
-Next step: Create detailed implementation plan document breaking down each milestone into concrete tasks.
+Next step: Implement Milestone 10 with bare command expressions to complete parser coverage of historian examples.

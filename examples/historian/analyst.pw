@@ -31,9 +31,9 @@ task analyst(session_id, work_dir, changeset_description) {
     }
 
     # Get base commit and create clean branch
-    base_commit=$(git merge_base HEAD origin/main 2>/dev/null || git merge_base HEAD main)
-    timestamp=$(echo "$session_id" | sed 's/historian-//')
-    clean_branch="${branch}-${timestamp}-clean"
+    var base_commit = $(git merge_base HEAD origin/main 2>/dev/null || git merge_base HEAD main)
+    var timestamp = $(echo "$session_id" | sed 's/historian-//')
+    var clean_branch = "${branch}-${timestamp}-clean"
 
     # Create master diff
     git diff $base_commit..HEAD > "${work_dir}/master.diff"

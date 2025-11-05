@@ -1,36 +1,45 @@
 {
-  "currentFocus": "Patchwork parser implementation - Milestone 9 (Comments & Annotations) completed, ready for Milestone 10 (Full Historian Example Validation)",
+  "currentFocus": "Patchwork parser Milestone 10: Bare Command Expressions - design phase complete, ready to implement",
   "recentAchievements": [
-    "Milestone 9 complete: Comments and decorator annotations fully working",
-    "Fixed critical lexer bug: Changed regex from '# [^\\n]*' to '#[^\\n]*' to match empty comments",
-    "Empty comment lines (standalone #) now parse correctly - used as visual separators in historian examples",
-    "All 88 tests passing (74 from M1-8 + 13 new M9 tests + 1 historian example test)",
-    "Zero parser conflicts maintained throughout implementation",
-    "13 comprehensive M9 tests cover: inline comments, decorator annotations, empty comments, comment-only files",
-    "Decorator annotations (@arg, @color) treated as comments - semantic analysis can parse later",
-    "Verified comment handling with simplified historian main.pw example"
+    "Completed comprehensive design for bare command expressions (M10)",
+    "Studied all four historian example files to understand command patterns needed",
+    "Developed semantic model: commands are scoped variables (Cmd or (string...) -> Proc types)",
+    "Designed whitespace-sensitive disambiguation: f(...) = function call, f ... = bare command",
+    "Documented complete design in parser-design.md with 300+ lines covering semantic model, AST, lexer changes",
+    "Created focused implementation plan in parser-implementation-plan.md with 9 task categories",
+    "Key decisions: defer eval, reuse BinOp::Pipe (type system disambiguates), lexer mode switching for shell args",
+    "Implicit quoting strategy: all args are strings unless in quotes for interpolation",
+    "Type system will disambiguate > (comparison vs redirection) and | (array filter vs process pipe)"
   ],
   "nextSteps": [
-    "Milestone 10: Full Historian Example Validation - parse all four example files completely",
-    "M10 requires implementing: bare command expressions (mkdir, echo, cat), await task syntax, complex bash substitution",
-    "Note: Full main.pw currently fails on unimplemented features (not comment issues)",
-    "After parser complete: AST visitor pattern, pretty printer, semantic analysis"
+    "Begin M10 implementation: extend lexer for shell argument mode",
+    "Add shell mode state detection (identifier + whitespace + non-paren)",
+    "Implement COMMAND_TOKEN generation (operators like +, - become part of arg strings)",
+    "Extend AST with BareCommand, CommandSubst, CommandArg enum, RedirectOp enum",
+    "Add grammar rules for bare command detection and parsing",
+    "Implement command substitution $(command args) in string interpolation",
+    "Add redirection operators (>, >>, 2>, 2>&1) to PostfixExpr",
+    "Test suite: simple commands, flags, complex args, interpolation, disambig, redirections, pipes",
+    "Final validation: parse all four historian example files completely"
   ],
-  "collaborativeState": "Excellent progress - systematic debugging led to finding and fixing lexer bug. Clean implementation with comprehensive tests.",
+  "collaborativeState": "Excellent design collaboration - explored semantic model through questions, developed comprehensive solution together. Design is well-documented and ready for implementation.",
   "keyInsights": [
-    "Lexer regex '# [^\\n]*' matched '# ' followed by anything, but not standalone '#' - subtle bug!",
-    "Empty comments are used in historian examples as visual separators between comment blocks",
-    "Parser adapter filters comments at line 171 of adapter.rs alongside whitespace",
-    "Decorator annotations are just comments - no special AST nodes needed, keeps parser simple",
-    "Testing revealed lexer issues before parser issues - importance of comprehensive test coverage",
-    "Simplified historian examples work perfectly - full examples need additional language features"
+    "Bare commands as scoped variables is KEY innovation - enables portability + shell ergonomics",
+    "Whitespace sensitivity mirrors Swift/Python conventions - natural disambiguation",
+    "Type system role is critical: same operator (>, |) serves multiple purposes based on operand types",
+    "Implicit quoting (bash-style) means args are strings by default, interpolation requires quotes",
+    "Command substitution $(cmd) vs expression interpolation ${expr} - both supported for ergonomics",
+    "Lexer mode switching cleanest approach: shell mode treats +, - as command arg tokens not operators",
+    "Standard library provides common commands (mkdir, git, cat, etc.) - not hardcoded in language"
   ],
   "criticalAwareness": [
-    "Lexer bug fix in lexer.alex:78 - '#[^\\n]*' now matches comments with or without content",
-    "Comments are completely filtered out - no AST preservation for doc generation yet",
-    "Full historian files need: bare commands, 'await task' syntax, complex bash substitution patterns",
-    "88 tests passing validates complete M1-9 implementation",
-    "Zero parser conflicts maintained across all 9 milestones",
-    "main.pw parse failure at line 11 (mkdir -p work_dir) is expected - bare commands not yet implemented"
+    "M9 complete with 88 tests passing, zero conflicts - solid foundation",
+    "Design docs now separated: parser-design.md has rationale, parser-implementation-plan.md has tasks",
+    "eval deferred - needs better portable syntax than current scribe.pw usage",
+    "cat function overloaded: cat(file), cat file, cat({obj}) - all valid, disambiguated by syntax/types",
+    "f(x) vs f x vs f (x) - no space = call, space = cmd, space+paren = cmd with paren arg",
+    "Shell operators (|, >, <, &&, ||, &, 2>, 2>&1) stay special in shell mode",
+    "Regular operators (+, -, *, ..) become part of argument tokens in shell mode",
+    "Variable refs in commands MUST be quoted: mkdir $dir is ERROR, mkdir \"$dir\" is correct"
   ]
 }
