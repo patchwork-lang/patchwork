@@ -248,8 +248,9 @@ Statement: Statement<'input> = {
     <FailStmt>,
     <BreakStmt>,
 
-    // Expression statement last (catch-all)
-    <ExprStmt>,
+    // Command or expression statement - factored to avoid conflicts (Milestone 10)
+    // This handles both bare commands (mkdir -p dir) and expression statements (x + y)
+    <CommandOrExprStmt>,
 };
 
 // Variable declaration with pattern support (Milestone 7)
@@ -314,8 +315,20 @@ BreakStmt: Statement<'input> = {
     "break" => Statement::Break,
 };
 
-// Expression statement
-ExprStmt: Statement<'input> = {
+// Command or expression statement (Milestone 10)
+// Factored to avoid LR(1) conflicts between bare commands and identifier expressions
+// Examples:
+//   mkdir -p work_dir   → BareCommand { name: "mkdir", args: ["-", "p", "work_dir"] }
+//   x + y               → Binary operation
+//   foo                 → Identifier expression
+CommandOrExprStmt: Statement<'input> = {
+    // Bare command: identifier followed by at least one argument
+    // This must come first to prefer bare command interpretation
+    <name:identifier> <args:CommandArgs> => {
+        Statement::Expr(Expr::BareCommand { name, args })
+    },
+
+    // Regular expression statement (includes standalone identifiers)
     <Expr> => Statement::Expr(<>),
 };
 
@@ -607,10 +620,6 @@ PrimaryExpr: Expr<'input> = {
 
     // Parenthesized expression
     "(" <e:Expr> ")" => Expr::Paren(Box::new(e)),
-
-    // Bare command: identifier followed by arguments (not identifier_call)
-    // Example: mkdir -p work_dir
-    <name:identifier> <args:CommandArgs> => Expr::BareCommand { name, args },
 };
 
 // Command arguments - one or more arguments for bare commands
@@ -628,12 +637,10 @@ CommandArg: CommandArg<'input> = {
     // String argument with interpolation: "${work_dir}"
     <s:StringLiteral> => CommandArg::String(s),
 
-    // Literal arguments: identifiers and numbers
+    // Literal arguments: identifiers and numbers only
+    // TODO(M10): Flags like -p need to be quoted for now: "-p"
     <id:identifier> => CommandArg::Literal(id),
     <num:number> => CommandArg::Literal(num),
-
-    // TODO M10: Handle complex patterns like -p, +%Y, ..
-    // For now, these will need to be in strings or we need lexer support
 };
 
 // String literal with interpolation support

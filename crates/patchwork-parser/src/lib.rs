@@ -2814,11 +2814,10 @@ task test() {
         let input = include_str!("../../../examples/historian/analyst.pw");
         let result = parse(input);
 
-        if let Err(e) = &result {
-            println!("Parse error: {:?}", e);
+        // For tracking progress - currently fails at bare commands with flags
+        // TODO(M10): Enable assertion once flag support is added
+        if let Err(ref e) = result {
+            eprintln!("Parse error (expected for now): {}", e);
         }
-
-        // For now, just see how far we get
-        // assert!(result.is_ok(), "Failed to parse analyst.pw: {:?}", result);
     }
 }
