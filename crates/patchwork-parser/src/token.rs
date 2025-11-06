@@ -85,6 +85,7 @@ pub enum ParserToken<'input> {
 
     // Prompt text
     PromptText(&'input str),
+    PromptEscape(&'input str),
 
     // Comments
     Comment(&'input str),

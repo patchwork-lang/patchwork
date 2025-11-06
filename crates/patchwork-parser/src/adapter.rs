@@ -157,6 +157,13 @@ where
             Rule::Ampersand => ParserToken::Ampersand,
             Rule::Dot => ParserToken::Dot,
             Rule::PromptText => ParserToken::PromptText(text),
+            Rule::PromptEscape => {
+                // Extract the character from $'<char>' pattern
+                // The text will be "$'x'" where x is the escaped character
+                // We want to extract just the 'x'
+                let escaped_char = &text[2..text.len()-1];
+                ParserToken::PromptEscape(escaped_char)
+            },
             Rule::Comment => ParserToken::Comment(text),
             // Shell mode tokens (Milestone 10)
             Rule::ShellArg => ParserToken::ShellArg(text),

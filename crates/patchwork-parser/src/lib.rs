@@ -1313,6 +1313,65 @@ mod tests {
         assert_eq!(program.items.len(), 1);
     }
 
+    #[test]
+    fn test_balanced_braces_in_prompt() {
+        // Test that balanced braces in prompts are treated as literal text
+        let input = r#"
+            task example() {
+                var result = think {
+                    Return an object: {name: "test", value: 42}
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse with balanced braces");
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_nested_balanced_braces_in_prompt() {
+        // Test nested balanced braces
+        let input = r#"
+            task example() {
+                var result = think {
+                    Return: {outer: {inner: 123}}
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse with nested balanced braces");
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_prompt_escape_syntax() {
+        // Test $'<char>' escape syntax for literal characters
+        let input = r#"
+            task example() {
+                var result = think {
+                    Use $'{' for literal left brace
+                    Use $'}' for literal right brace
+                    Use $'$' for literal dollar sign
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse with escape syntax");
+        assert_eq!(program.items.len(), 1);
+    }
+
+    #[test]
+    fn test_balanced_braces_with_interpolation() {
+        // Test that interpolation still works inside balanced braces
+        let input = r#"
+            task example() {
+                var name = "test"
+                var result = think {
+                    Object: {name: $name, value: ${40 + 2}}
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse braces with interpolation");
+        assert_eq!(program.items.len(), 1);
+    }
+
     // ===== String Interpolation Tests (Milestone 6) =====
 
     #[test]
@@ -2749,15 +2808,13 @@ skill rewriting_git_branch(changeset_description) {
     // All shell commands now require explicit $ prefix
 
     #[test]
-    #[ignore] // TODO: Fix lexer issues with prompt mode
     fn test_parse_historian_analyst() {
         let input = include_str!("../../../examples/historian/analyst.pw");
         let result = parse(input);
 
-        // Milestone 10 - Two lexer issues prevent analyst.pw from parsing:
-        // 1. Invalid span tracking in Prompt mode with string interpolation (Newline token)
-        // 2. Code fences (```javascript) in prompts contain { } which lexer treats as tokens
-        //    PromptText pattern [^{}\s\$]+ excludes braces, but they should be allowed in prose
+        // Fixed issues:
+        // 1. Invalid span tracking - worked around with ASCII arrows
+        // 2. Code fences - fixed with balanced braces support
         assert!(result.is_ok(), "Failed to parse analyst.pw: {:?}", result);
     }
 

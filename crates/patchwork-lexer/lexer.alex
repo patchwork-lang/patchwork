@@ -80,6 +80,7 @@ Identifier: <Code> {{ID}}
 
 Comment: <Code> #[^\n]*
 
+PromptEscape: <Prompt> \$'(.)'
 PromptText: <Prompt> [^{}\s\$]+
 
 ShellRedirectErrToOut: <Shell> 2>&1

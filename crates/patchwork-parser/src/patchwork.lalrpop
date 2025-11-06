@@ -95,6 +95,7 @@ extern {
 
         // Prompt text
         prompt_text => ParserToken::PromptText(<&'input str>),
+        prompt_escape => ParserToken::PromptEscape(<&'input str>),
 
         // Comments
         comment => ParserToken::Comment(<&'input str>),
@@ -875,6 +876,30 @@ PromptItemOrNewline: Option<PromptItem<'input>> = {
 PromptItem: PromptItem<'input> = {
     // Raw prompt text
     <text:prompt_text> => PromptItem::Text(text),
+
+    // Escaped character: $'<char>' - treated as literal text
+    <escaped:prompt_escape> => PromptItem::Text(escaped),
+
+    // Balanced braces (treated as literal text in the prompt)
+    "{" <inner:PromptBlock> "}" => {
+        // Build text representation: "{" + inner items + "}"
+        let mut text = String::from("{");
+        for item in &inner.items {
+            match item {
+                PromptItem::Text(s) => text.push_str(s),
+                PromptItem::Interpolation(expr) => {
+                    // This shouldn't happen in balanced braces, but handle it
+                    text.push_str(&format!("${{{:?}}}", expr));
+                },
+                PromptItem::Code(block) => {
+                    // This shouldn't happen in balanced braces, but handle it
+                    text.push_str(&format!("do {{{:?}}}", block));
+                },
+            }
+        }
+        text.push('}');
+        PromptItem::Text(text.leak())
+    },
 
     // Variable interpolation: $identifier or ${expr}
     dollar <id:identifier> => PromptItem::Interpolation(Expr::Identifier(id)),

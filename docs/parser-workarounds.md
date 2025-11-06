@@ -119,25 +119,48 @@ if start > end {
 
 ---
 
-## Known Issues Without Workarounds
+## Resolved Issues
 
-### 5. Code Fences in Prompts
-**Test:** `test_parse_historian_analyst` (ignored)
+### 5. Code Fences in Prompts ✅ FIXED
+**Test:** `test_parse_historian_analyst` (now passing)
 
-**Issue:** Code fences like ` ```javascript ` in prompts contain `{` `}` that lexer treats as patchwork tokens instead of text.
+**Issue:** Code fences like ` ```javascript ` in prompts contain `{` `}` that lexer previously treated as patchwork tokens instead of text.
 
-**Root Cause:** PromptText pattern `[^{}\s\$]+` explicitly excludes braces. In prose or code examples, braces should be allowed.
+**Root Cause:** PromptText pattern `[^{}\s\$]+` explicitly excludes braces to detect `do {` blocks and `${...}` interpolation.
 
-**No Workaround:** Cannot fix without lexer changes.
+**Solution Implemented:** **Balanced Braces with Recursive Grammar**
 
-**Proper Fix:**
-- Option A: Change PromptText to allow braces: `[^\s\$]+` (but then how to detect `do {`?)
-- Option B: Implement fence-aware lexing (complex state machine)
-- Option C: Use different syntax for code examples in prompts
+Added support for balanced braces in prompts through recursive parsing:
+```lalrpop
+PromptItem: PromptItem<'input> = {
+    <text:prompt_text> => PromptItem::Text(text),
+    "{" <inner:PromptBlock> "}" => /* flatten to text */,
+    dollar <id:identifier> => PromptItem::Interpolation(...),
+    dollar "{" <e:Expr> "}" => PromptItem::Interpolation(...),
+    "do" "{" <statements:StatementList> "}" => PromptItem::Code(...),
+};
+```
 
-**Impact:** analyst.pw cannot parse due to JavaScript code example at line 91.
+**Key Insight:** The `dollar` and `do` prefixes disambiguate interpolation/code blocks from balanced text braces.
+
+**Escape Syntax:** Added `$'<char>'` for literal characters:
+- `$'{'` - literal left brace
+- `$'}'` - literal right brace
+- `$'$'` - literal dollar sign
+
+**Benefits:**
+- Balanced braces (common case) work naturally: `{name: "test", value: 42}`
+- Nested braces supported: `{outer: {inner: 123}}`
+- Interpolation inside braces works: `{name: $var}`
+- Imbalanced braces use escape syntax: `$'{'` for edge cases
+
+**Impact:** analyst.pw now parses successfully!
+
+**Status:** ✅ **Properly fixed** (not a workaround)
 
 ---
+
+## Known Issues Without Workarounds
 
 ### 6. Multi-line Ask Blocks
 **Test:** `test_parse_historian_scribe` (fails)
@@ -182,26 +205,30 @@ if start > end {
   1. Invalid span skipping (#1) - temporarily resolved for examples via ASCII arrows
   2. Defensive span validation (#2)
   3. Comment style (#3)
-- **Known issues without workarounds:** 2
-  5. Code fences in prompts - **currently blocking analyst.pw**
+- **Resolved issues:** 1
+  5. ~~Code fences in prompts~~ ✅ **FIXED** with balanced braces + escape syntax
+- **Known issues without workarounds:** 1
   6. Multi-line ask blocks - blocking scribe.pw
-- **Files passing:** 2/4 historian files (main.pw, narrator.pw)
-- **Files failing:** 2/4 (analyst.pw: code fence issue, scribe.pw: multi-line ask)
-- **Test status:** 93 passing, 2 failing, 1 ignored
+- **Files passing:** 3/4 historian files (main.pw, narrator.pw, **analyst.pw** ✅)
+- **Files failing:** 1/4 (scribe.pw: multi-line ask)
+- **Test status:** 99/100 passing (1 failing, 0 ignored)
 
 ---
 
 ## Recommendations
 
-**Priority 1 - Blocking 2 Files:**
-1. ~~Fix lexer span tracking in Prompt mode (#1, #2)~~ **Temporarily resolved** with ASCII arrows
-2. Fix code fences in prompts (#5) - **currently blocking analyst.pw**
-3. Fix lexer Prompt mode state across newlines (#6) - blocking scribe.pw
+**Priority 1 - Blocking Scribe:**
+1. Fix lexer Prompt mode state across newlines (#6) - blocking scribe.pw
 
 **Priority 2 - Quality of Life:**
-4. Decide on `//` comment support (#3) - affects syntax consistency
+2. Decide on `//` comment support (#3) - affects syntax consistency
 
 **Long-term:**
 - Report UTF-8 column tracking bug to parlex maintainers or consider alternative lexer
 - Add comprehensive lexer tests for mode transitions
 - Document lexer mode state machine formally
+- Consider adding fence-mode for explicit code blocks (` ``` `) as enhancement
+
+**Completed:**
+- ✅ UTF-8 span tracking (#1, #2) - temporarily resolved with ASCII arrows
+- ✅ Code fences in prompts (#5) - properly fixed with balanced braces + escape syntax
