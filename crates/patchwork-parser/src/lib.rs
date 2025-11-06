@@ -1,7 +1,6 @@
 pub mod token;
 pub mod adapter;
 pub mod ast;
-#[cfg(test)]
 pub mod ast_dump;
 
 // Include generated parser code from lalrpop
