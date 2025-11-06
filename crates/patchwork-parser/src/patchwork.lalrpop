@@ -369,21 +369,7 @@ BreakStmt: Statement<'input> = {
 // Shell statement: $ command args (Milestone 10)
 // Parses: $ mkdir -p work_dir
 ShellStmt: Statement<'input> = {
-    dollar <args:CommandArgs> => {
-        // Extract command name from first arg
-        if let Some(first) = args.first() {
-            let name = match first {
-                CommandArg::Literal(s) => s,
-                CommandArg::String(_) => panic!("Shell command name cannot be a string"),
-            };
-            Statement::Expr(Expr::BareCommand {
-                name,
-                args: args[1..].to_vec()
-            })
-        } else {
-            panic!("Shell statement requires at least a command name")
-        }
-    },
+    dollar <e:ShellExpr> => Statement::Expr(e),
 };
 
 // Expression statement (Milestone 10)
@@ -682,37 +668,11 @@ PrimaryExpr: Expr<'input> = {
     // Note: do { } is NOT a standalone expression - only used inside think/ask blocks
 
     // Shell expressions (Milestone 10)
-    // Command substitution: $(command args) → returns stdout as string
-    dollar "(" <args:CommandArgs> ")" => {
-        if let Some(first) = args.first() {
-            let name = match first {
-                CommandArg::Literal(s) => s,
-                CommandArg::String(_) => panic!("Shell command name cannot be a string"),
-            };
-            Expr::CommandSubst {
-                name,
-                args: args[1..].to_vec()
-            }
-        } else {
-            panic!("Command substitution requires at least a command name")
-        }
-    },
+    // Command substitution: $(shell_expr) → returns stdout as string
+    dollar "(" <e:ShellExpr> ")" => Expr::CommandSubst(Box::new(e)),
 
-    // Shell expression: ($ command args) → returns exit code as boolean
-    "(" dollar <args:CommandArgs> ")" => {
-        if let Some(first) = args.first() {
-            let name = match first {
-                CommandArg::Literal(s) => s,
-                CommandArg::String(_) => panic!("Shell command name cannot be a string"),
-            };
-            Expr::BareCommand {
-                name,
-                args: args[1..].to_vec()
-            }
-        } else {
-            panic!("Shell expression requires at least a command name")
-        }
-    },
+    // Shell expression: ($ shell_expr) → returns exit code as boolean
+    "(" dollar <e:ShellExpr> ")" => e,
 
     // Parenthesized expression
     "(" <e:Expr> ")" => Expr::Paren(Box::new(e)),
@@ -767,20 +727,112 @@ CommandArg: CommandArg<'input> = {
     // Shell mode arguments: -p, --flag, file.txt, etc.
     <arg:shell_arg> => CommandArg::Literal(arg),
 
-    // Shell operators (as literal arguments for simplicity)
-    shell_redirect_out => CommandArg::Literal(">"),
-    shell_redirect_append => CommandArg::Literal(">>"),
-    shell_redirect_in => CommandArg::Literal("<"),
-    shell_redirect_err => CommandArg::Literal("2>"),
-    shell_redirect_err_to_out => CommandArg::Literal("2>&1"),
-    shell_pipe => CommandArg::Literal("|"),
-    shell_and => CommandArg::Literal("&&"),
-    shell_or => CommandArg::Literal("||"),
-    shell_background => CommandArg::Literal("&"),
-
     // Literal arguments: identifiers and numbers (for backwards compatibility)
     <id:identifier> => CommandArg::Literal(id),
     <num:number> => CommandArg::Literal(num),
+};
+
+// Shell expressions with operators (pipes, redirects, logical operators)
+// Precedence (lowest to highest): || > && > | > redirects > bare command
+
+// Shell logical or: cmd1 || cmd2
+ShellExpr: Expr<'input> = {
+    <left:ShellExpr> shell_or <right:ShellAndExpr> => {
+        Expr::ShellOr {
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    },
+    <ShellAndExpr>,
+};
+
+// Shell logical and: cmd1 && cmd2
+ShellAndExpr: Expr<'input> = {
+    <left:ShellAndExpr> shell_and <right:ShellPipeExpr> => {
+        Expr::ShellAnd {
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    },
+    <ShellPipeExpr>,
+};
+
+// Shell pipe: cmd1 | cmd2
+ShellPipeExpr: Expr<'input> = {
+    <left:ShellPipeExpr> shell_pipe <right:ShellRedirectExpr> => {
+        Expr::ShellPipe {
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    },
+    <ShellRedirectExpr>,
+};
+
+// Shell redirects: cmd > file, cmd 2> file, etc.
+ShellRedirectExpr: Expr<'input> = {
+    <cmd:ShellAtom> shell_redirect_out <target:ShellRedirectTarget> => {
+        Expr::ShellRedirect {
+            command: Box::new(cmd),
+            op: RedirectOp::Out,
+            target: Box::new(target),
+        }
+    },
+    <cmd:ShellAtom> shell_redirect_append <target:ShellRedirectTarget> => {
+        Expr::ShellRedirect {
+            command: Box::new(cmd),
+            op: RedirectOp::Append,
+            target: Box::new(target),
+        }
+    },
+    <cmd:ShellAtom> shell_redirect_in <target:ShellRedirectTarget> => {
+        Expr::ShellRedirect {
+            command: Box::new(cmd),
+            op: RedirectOp::In,
+            target: Box::new(target),
+        }
+    },
+    <cmd:ShellAtom> shell_redirect_err <target:ShellRedirectTarget> => {
+        Expr::ShellRedirect {
+            command: Box::new(cmd),
+            op: RedirectOp::ErrOut,
+            target: Box::new(target),
+        }
+    },
+    <cmd:ShellAtom> shell_redirect_err_to_out => {
+        // 2>&1 doesn't have a target, it's a special redirect
+        // For now, treat it as redirecting to a special identifier
+        Expr::ShellRedirect {
+            command: Box::new(cmd),
+            op: RedirectOp::ErrToOut,
+            target: Box::new(Expr::Identifier("&1")),
+        }
+    },
+    <ShellAtom>,
+};
+
+// Shell redirect target: file path, string, or identifier
+ShellRedirectTarget: Expr<'input> = {
+    <s:StringLiteral> => Expr::String(s),
+    <arg:shell_arg> => Expr::Identifier(arg),
+    <id:identifier> => Expr::Identifier(id),
+};
+
+// Shell atom: bare command with arguments
+ShellAtom: Expr<'input> = {
+    <args:CommandArgs> => {
+        if let Some(first) = args.first() {
+            let name = match first {
+                CommandArg::Literal(s) => s,
+                CommandArg::String(_) => panic!("Shell command name cannot be a string"),
+            };
+            Expr::BareCommand {
+                name,
+                args: args[1..].to_vec()
+            }
+        } else {
+            panic!("Shell command requires at least a command name")
+        }
+    },
 };
 
 // String literal with interpolation support

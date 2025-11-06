@@ -272,14 +272,37 @@ fn write_expr(out: &mut String, expr: &Expr, indent: usize) -> std::fmt::Result 
                 }
             }
         }
-        Expr::CommandSubst { name, args } => {
-            writeln!(out, "{}CommandSubst: {}", prefix, name)?;
-            if !args.is_empty() {
-                writeln!(out, "{}  Args:", prefix)?;
-                for arg in args {
-                    write_command_arg(out, arg, indent + 2)?;
-                }
-            }
+        Expr::CommandSubst(e) => {
+            writeln!(out, "{}CommandSubst:", prefix)?;
+            write_expr(out, e, indent + 1)?;
+        }
+        Expr::ShellPipe { left, right } => {
+            writeln!(out, "{}ShellPipe:", prefix)?;
+            writeln!(out, "{}  Left:", prefix)?;
+            write_expr(out, left, indent + 2)?;
+            writeln!(out, "{}  Right:", prefix)?;
+            write_expr(out, right, indent + 2)?;
+        }
+        Expr::ShellAnd { left, right } => {
+            writeln!(out, "{}ShellAnd:", prefix)?;
+            writeln!(out, "{}  Left:", prefix)?;
+            write_expr(out, left, indent + 2)?;
+            writeln!(out, "{}  Right:", prefix)?;
+            write_expr(out, right, indent + 2)?;
+        }
+        Expr::ShellOr { left, right } => {
+            writeln!(out, "{}ShellOr:", prefix)?;
+            writeln!(out, "{}  Left:", prefix)?;
+            write_expr(out, left, indent + 2)?;
+            writeln!(out, "{}  Right:", prefix)?;
+            write_expr(out, right, indent + 2)?;
+        }
+        Expr::ShellRedirect { command, op, target } => {
+            writeln!(out, "{}ShellRedirect: {:?}", prefix, op)?;
+            writeln!(out, "{}  Command:", prefix)?;
+            write_expr(out, command, indent + 2)?;
+            writeln!(out, "{}  Target:", prefix)?;
+            write_expr(out, target, indent + 2)?;
         }
         Expr::PostIncrement(e) => {
             writeln!(out, "{}PostIncrement:", prefix)?;

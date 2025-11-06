@@ -3024,16 +3024,22 @@ skill rewriting_git_branch(changeset_description) {
                             _ => panic!("Expected identifier pattern"),
                         }
 
-                        // Init should be CommandSubst
+                        // Init should be CommandSubst wrapping a BareCommand
                         match init.as_ref().unwrap() {
-                            Expr::CommandSubst { name, args } => {
-                                assert_eq!(*name, "date");
-                                assert_eq!(args.len(), 1);
-                                match &args[0] {
-                                    CommandArg::Literal(s) => {
-                                        assert_eq!(*s, "+%s");
+                            Expr::CommandSubst(inner) => {
+                                // Inner should be BareCommand
+                                match inner.as_ref() {
+                                    Expr::BareCommand { name, args } => {
+                                        assert_eq!(*name, "date");
+                                        assert_eq!(args.len(), 1);
+                                        match &args[0] {
+                                            CommandArg::Literal(s) => {
+                                                assert_eq!(*s, "+%s");
+                                            }
+                                            _ => panic!("Expected literal arg"),
+                                        }
                                     }
-                                    _ => panic!("Expected literal arg"),
+                                    _ => panic!("Expected BareCommand inside CommandSubst"),
                                 }
                             }
                             _ => panic!("Expected CommandSubst expression"),
@@ -3171,6 +3177,143 @@ skill rewriting_git_branch(changeset_description) {
         let input = "task main() {\n    if !($ git diff_index --quiet HEAD --) {\n        fail\n    }\n}";
         let result = parse(input);
         assert!(result.is_ok(), "Failed to parse negated shell expression: {:?}", result);
+    }
+
+    #[test]
+    fn test_shell_operators_structure() {
+        // Test that shell operators create proper AST structure
+        let input = r#"
+            task test() {
+                var result = $(git merge_base HEAD main 2>/dev/null || git merge_base HEAD master)
+            }
+        "#;
+        let program = parse(input).expect("Should parse shell operators");
+
+        // Navigate to the init expression
+        match &program.items[0] {
+            Item::Task(task) => {
+                match &task.body.statements[0] {
+                    Statement::VarDecl { init, .. } => {
+                        match init.as_ref().unwrap() {
+                            Expr::CommandSubst(inner) => {
+                                // Should be ShellOr at top level
+                                match inner.as_ref() {
+                                    Expr::ShellOr { left, right } => {
+                                        // Left should be ShellRedirect
+                                        match left.as_ref() {
+                                            Expr::ShellRedirect { command, op, target } => {
+                                                assert_eq!(*op, RedirectOp::ErrOut);
+                                                // Command should be BareCommand
+                                                match command.as_ref() {
+                                                    Expr::BareCommand { name, args } => {
+                                                        assert_eq!(*name, "git");
+                                                        assert_eq!(args.len(), 3);
+                                                    }
+                                                    _ => panic!("Expected BareCommand in redirect"),
+                                                }
+                                                // Target should be Identifier
+                                                match target.as_ref() {
+                                                    Expr::Identifier(id) => {
+                                                        assert_eq!(*id, "/dev/null");
+                                                    }
+                                                    _ => panic!("Expected Identifier as redirect target"),
+                                                }
+                                            }
+                                            _ => panic!("Expected ShellRedirect on left"),
+                                        }
+                                        // Right should be BareCommand
+                                        match right.as_ref() {
+                                            Expr::BareCommand { name, args } => {
+                                                assert_eq!(*name, "git");
+                                                assert_eq!(args.len(), 3);
+                                            }
+                                            _ => panic!("Expected BareCommand on right"),
+                                        }
+                                    }
+                                    _ => panic!("Expected ShellOr"),
+                                }
+                            }
+                            _ => panic!("Expected CommandSubst"),
+                        }
+                    }
+                    _ => panic!("Expected var decl"),
+                }
+            }
+            _ => panic!("Expected task"),
+        }
+    }
+
+    #[test]
+    fn test_shell_pipe_operator() {
+        // Test pipe operator structure
+        let input = r#"
+            task test() {
+                $ cat file.txt | grep pattern
+            }
+        "#;
+        let program = parse(input).expect("Should parse pipe operator");
+
+        match &program.items[0] {
+            Item::Task(task) => {
+                match &task.body.statements[0] {
+                    Statement::Expr(Expr::ShellPipe { left, right }) => {
+                        // Left should be "cat file.txt"
+                        match left.as_ref() {
+                            Expr::BareCommand { name, args } => {
+                                assert_eq!(*name, "cat");
+                                assert_eq!(args.len(), 1);
+                            }
+                            _ => panic!("Expected BareCommand on left of pipe"),
+                        }
+                        // Right should be "grep pattern"
+                        match right.as_ref() {
+                            Expr::BareCommand { name, args } => {
+                                assert_eq!(*name, "grep");
+                                assert_eq!(args.len(), 1);
+                            }
+                            _ => panic!("Expected BareCommand on right of pipe"),
+                        }
+                    }
+                    _ => panic!("Expected ShellPipe"),
+                }
+            }
+            _ => panic!("Expected task"),
+        }
+    }
+
+    #[test]
+    fn test_shell_redirect_operators() {
+        // Test various redirect operators
+        let input = r#"
+            task test() {
+                $ echo hello > output.txt
+            }
+        "#;
+        let program = parse(input).expect("Should parse redirect");
+
+        match &program.items[0] {
+            Item::Task(task) => {
+                match &task.body.statements[0] {
+                    Statement::Expr(Expr::ShellRedirect { command, op, target }) => {
+                        assert_eq!(*op, RedirectOp::Out);
+                        match command.as_ref() {
+                            Expr::BareCommand { name, .. } => {
+                                assert_eq!(*name, "echo");
+                            }
+                            _ => panic!("Expected BareCommand"),
+                        }
+                        match target.as_ref() {
+                            Expr::Identifier(id) => {
+                                assert_eq!(*id, "output.txt");
+                            }
+                            _ => panic!("Expected Identifier as target"),
+                        }
+                    }
+                    _ => panic!("Expected ShellRedirect"),
+                }
+            }
+            _ => panic!("Expected task"),
+        }
     }
 
     #[test]

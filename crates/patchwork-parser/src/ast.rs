@@ -228,6 +228,8 @@ pub enum RedirectOp {
     Out,
     /// Append output redirection: `>>`
     Append,
+    /// Standard input redirection: `<`
+    In,
     /// Stderr redirection: `2>`
     ErrOut,
     /// Stderr to stdout redirection: `2>&1`
@@ -299,10 +301,29 @@ pub enum Expr<'input> {
         name: &'input str,
         args: Vec<CommandArg<'input>>,
     },
-    /// Command substitution: `$(date +%Y%m%d-%H%M%S)`
-    CommandSubst {
-        name: &'input str,
-        args: Vec<CommandArg<'input>>,
+    /// Command substitution: `$(shell_expr)`
+    /// Executes shell expression and returns stdout as string
+    CommandSubst(Box<Expr<'input>>),
+    /// Shell pipe: `cmd1 | cmd2`
+    ShellPipe {
+        left: Box<Expr<'input>>,
+        right: Box<Expr<'input>>,
+    },
+    /// Shell logical and: `cmd1 && cmd2`
+    ShellAnd {
+        left: Box<Expr<'input>>,
+        right: Box<Expr<'input>>,
+    },
+    /// Shell logical or: `cmd1 || cmd2`
+    ShellOr {
+        left: Box<Expr<'input>>,
+        right: Box<Expr<'input>>,
+    },
+    /// Shell redirect: `cmd > file` or `cmd 2> file`
+    ShellRedirect {
+        command: Box<Expr<'input>>,
+        op: RedirectOp,
+        target: Box<Expr<'input>>,
     },
 }
 
