@@ -251,8 +251,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 1);
@@ -283,8 +283,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 1);
@@ -319,8 +319,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 1);
@@ -355,8 +355,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 1);
@@ -391,8 +391,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 1);
@@ -425,8 +425,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -453,8 +453,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -484,8 +484,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -514,8 +514,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -538,8 +538,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -595,8 +595,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         // Should have TWO statements: return (no value) and x (expression statement)
@@ -629,8 +629,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         // Should have 3 statements on one line
@@ -654,8 +654,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 4);
@@ -675,8 +675,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 3);
@@ -703,8 +703,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 5);
@@ -727,8 +727,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -767,8 +767,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 4);
@@ -795,8 +795,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -834,8 +834,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 4);
@@ -864,8 +864,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 2);
@@ -894,8 +894,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 2);
@@ -923,8 +923,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -952,8 +952,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 2);
@@ -982,8 +982,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1018,8 +1018,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         assert_eq!(func.body.statements.len(), 2);
@@ -1051,8 +1051,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1076,8 +1076,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         // Should parse as Mul(Paren(Add(x, y)), z)
@@ -1110,8 +1110,8 @@ mod tests {
 
         let program = result.unwrap();
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         // Should parse successfully - verify it's a var decl with a complex init
@@ -1384,8 +1384,8 @@ mod tests {
         "#;
         let program = parse(input).expect("Should parse");
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1424,8 +1424,8 @@ mod tests {
         "#;
         let program = parse(input).expect("Should parse");
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1465,8 +1465,8 @@ mod tests {
         "#;
         let program = parse(input).expect("Should parse");
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1505,8 +1505,8 @@ mod tests {
         "#;
         let program = parse(input).expect("Should parse");
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1559,8 +1559,8 @@ mod tests {
         "#;
         let program = parse(input).expect("Should parse");
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1655,8 +1655,8 @@ mod tests {
         assert_eq!(program.items.len(), 1);
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1684,8 +1684,8 @@ mod tests {
         let program = parse(input).expect("Should parse array with elements");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1715,8 +1715,8 @@ mod tests {
         let program = parse(input).expect("Should parse array with objects");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1749,8 +1749,8 @@ mod tests {
         let program = parse(input).expect("Should parse empty object");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1774,8 +1774,8 @@ mod tests {
         let program = parse(input).expect("Should parse object with fields");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1805,8 +1805,8 @@ mod tests {
         let program = parse(input).expect("Should parse object with shorthand");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1836,8 +1836,8 @@ mod tests {
         let program = parse(input).expect("Should parse object with mixed syntax");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1867,8 +1867,8 @@ mod tests {
         let program = parse(input).expect("Should parse simple destructuring");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -1898,8 +1898,8 @@ mod tests {
         let program = parse(input).expect("Should parse destructuring with types");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2006,8 +2006,8 @@ mod tests {
         let program = parse(input).expect("Should parse complex nested structure");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2046,8 +2046,8 @@ mod tests {
         let program = parse(input).expect("Should parse simple type annotation");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2079,8 +2079,8 @@ mod tests {
         let program = parse(input).expect("Should parse array type");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2116,8 +2116,8 @@ mod tests {
         let program = parse(input).expect("Should parse union type");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2158,8 +2158,8 @@ mod tests {
         let program = parse(input).expect("Should parse object type");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2202,8 +2202,8 @@ mod tests {
         let program = parse(input).expect("Should parse destructuring with types");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2328,8 +2328,8 @@ mod tests {
         let program = parse(input).expect("Should parse nested array type");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2370,8 +2370,8 @@ mod tests {
         let program = parse(input).expect("Should parse complex union type");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2416,8 +2416,8 @@ mod tests {
         let program = parse(input).expect("Should parse array of object type");
 
         let func = match &program.items[0] {
-            Item::Function(f) => f,
-            _ => panic!("Expected function"),
+            Item::Task(f) => f,
+            _ => panic!("Expected task"),
         };
 
         match &func.body.statements[0] {
@@ -2517,7 +2517,7 @@ mod tests {
         assert_eq!(program.items.len(), 1);
 
         match &program.items[0] {
-            Item::Function(func) => {
+            Item::Task(func) => {
                 assert_eq!(func.body.statements.len(), 1);
                 match &func.body.statements[0] {
                     Statement::VarDecl { pattern, init } => {
@@ -2530,7 +2530,7 @@ mod tests {
                     _ => panic!("Expected VarDecl"),
                 }
             }
-            _ => panic!("Expected function with body"),
+            _ => panic!("Expected task with body"),
         }
     }
 
@@ -2554,10 +2554,10 @@ task test() {
         assert_eq!(program.items.len(), 1);
 
         match &program.items[0] {
-            Item::Function(func) => {
+            Item::Task(func) => {
                 assert_eq!(func.body.statements.len(), 2);
             }
-            _ => panic!("Expected function with body"),
+            _ => panic!("Expected task with body"),
         }
     }
 
@@ -2659,7 +2659,7 @@ task test() {
         assert_eq!(program.items.len(), 1);
 
         match &program.items[0] {
-            Item::Function(func) => {
+            Item::Task(func) => {
                 match &func.body.statements[0] {
                     Statement::If { then_block, else_block, .. } => {
                         assert_eq!(then_block.statements.len(), 1);
@@ -2668,7 +2668,7 @@ task test() {
                     _ => panic!("Expected if statement"),
                 }
             }
-            _ => panic!("Expected function"),
+            _ => panic!("Expected task"),
         }
     }
 
