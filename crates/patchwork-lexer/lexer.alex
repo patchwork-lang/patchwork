@@ -8,7 +8,7 @@ Newline: <Code,Prompt,Shell> {{NL}}
 
 StringStart: <Code,Shell> \"
 StringEnd: <InString> \"
-StringText: <InString> ([^\"\$\\]|\\.)+
+StringText: <InString> ([^\"\$]|\\.)+
 Dollar: <Code,InString,Prompt,Shell> \$
 
 SingleQuoteString: <Code> '([^'\\]|\\.)*'

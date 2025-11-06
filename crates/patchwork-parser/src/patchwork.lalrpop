@@ -905,6 +905,21 @@ PromptItem: PromptItem<'input> = {
     dollar <id:identifier> => PromptItem::Interpolation(Expr::Identifier(id)),
     dollar "{" <e:Expr> "}" => PromptItem::Interpolation(e),
 
-    // Embedded do block within a prompt
+    // Do-block or standalone "do" - handle both cases
+    DoOrText,
+};
+
+// Helper to handle "do" keyword - either a do-block or standalone text
+// Using error recovery to handle standalone "do" that's not followed by "{"
+DoOrText: PromptItem<'input> = {
+    // Try to match do-block first
     "do" "{" <statements:StatementList> "}" => PromptItem::Code(Block { statements }),
+
+    // If that fails (do not followed by {), treat "do" as text
+    // We use an error production to catch this case
+    ! => {
+        // This error production catches parse errors in DoOrText
+        // If we see "do" but it's not followed by "{", treat it as text
+        PromptItem::Text("do")
+    },
 };

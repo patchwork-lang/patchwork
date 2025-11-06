@@ -315,15 +315,15 @@ where
                 let token = PatchworkToken::new(rule, Some(span));
                 lexer.yield_token(token);
 
-                // In Code mode: $(command) enters Shell mode for command substitution
-                // In InString/Prompt mode: $(expr) stays in Code mode for expression
-                if lexer.mode() == Mode::Code && !context.in_string_interpolation && !context.in_prompt_interpolation {
-                    // Code mode: enter Shell mode for command substitution
+                // In Code mode OR Prompt mode: $(command) enters Shell mode for command substitution
+                // In InString mode: $(expr) stays in Code mode for expression (to support nested expressions)
+                if !context.in_string_interpolation || context.in_prompt_interpolation {
+                    // Code/Prompt mode: enter Shell mode for command substitution
                     context.push_mode(Mode::Shell, DelimiterType::Paren);
                     lexer.begin(Mode::Shell);
                     context.in_shell_mode = true;
                 } else {
-                    // InString/Prompt mode: stay in Code mode for expression
+                    // InString mode only: stay in Code mode for nested expressions like "${func($(cmd))}"
                     context.push_mode(Mode::Code, DelimiterType::Paren);
                     // Already in Code mode from Dollar handling
                 }
@@ -1439,7 +1439,7 @@ var session_id = "historian-${timestamp}""#;
             Rule::Whitespace,
             Rule::Dollar,
             Rule::LParen,
-            Rule::Identifier,      // date
+            Rule::ShellArg,        // date (in Shell mode now, not Code mode)
             Rule::RParen,
             Rule::Whitespace,
             Rule::PromptText,      // "today?"

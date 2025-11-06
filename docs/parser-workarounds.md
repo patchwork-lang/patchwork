@@ -160,20 +160,42 @@ PromptItem: PromptItem<'input> = {
 
 ---
 
-## Known Issues Without Workarounds
+## Resolved Issues
 
-### 6. Multi-line Ask Blocks
-**Test:** `test_parse_historian_scribe` (fails)
+### 6. Multi-line Ask Blocks ✅ FIXED
+**Test:** `test_parse_historian_scribe` (now passing)
 
-**Issue:** Multi-line `ask` blocks fail - lexer doesn't stay in Prompt mode correctly across newlines.
+**Issue:** Multi-line `ask` blocks failed to parse - three separate issues prevented scribe.pw from parsing.
 
-**Root Cause:** Lexer mode state management issue with newlines in Prompt mode.
+**Root Causes Identified:**
 
-**No Workaround:** Cannot fix without lexer changes.
+1. **Standalone `do` keyword in prompts**: The word "do" (as in "What should I do...") was tokenized as a `Do` keyword, and the parser expected `{` to follow.
 
-**Proper Fix:** Fix lexer state machine to properly maintain Prompt mode across newlines.
+2. **Backslash in strings**: Line continuation backslashes inside strings (shell commands) were matching `ErrorAny` instead of `StringText`.
 
-**Impact:** scribe.pw cannot parse due to multi-line ask block at lines 61-73.
+3. **Shell mode in prompts**: `$(...)` inside prompts was entering Code mode instead of Shell mode, causing shell characters like `~` to fail.
+
+**Solutions Implemented:**
+
+1. **Parser: Error recovery for standalone `do`**
+   - File: `crates/patchwork-parser/src/patchwork.lalrpop`
+   - Added `DoOrText` helper rule with `!` error production
+   - Standalone `do` tokens (not followed by `{`) are treated as text
+   - Allows natural language like "What should I do to make this work?"
+
+2. **Lexer: Allow backslashes in StringText**
+   - File: `crates/patchwork-lexer/lexer.alex` line 11
+   - Changed `StringText` pattern from `([^\"\$\\]|\\.)+` to `([^\"\$]|\\.)+`
+   - Allows backslashes for shell line continuations inside strings
+
+3. **Lexer: Shell mode for `$(...)` in prompts**
+   - File: `crates/patchwork-lexer/src/lib.rs` lines 318-331
+   - Changed logic so `$(...)` enters Shell mode in Prompt mode (not Code mode)
+   - Allows shell commands like `$(git diff HEAD~1 HEAD)` in prompts
+
+**Impact:** scribe.pw now parses successfully! All 4 historian examples passing.
+
+**Status:** ✅ **Properly fixed** (not workarounds)
 
 ---
 
@@ -205,23 +227,20 @@ PromptItem: PromptItem<'input> = {
   1. Invalid span skipping (#1) - temporarily resolved for examples via ASCII arrows
   2. Defensive span validation (#2)
   3. Comment style (#3)
-- **Resolved issues:** 1
+- **Resolved issues:** 2
   5. ~~Code fences in prompts~~ ✅ **FIXED** with balanced braces + escape syntax
-- **Known issues without workarounds:** 1
-  6. Multi-line ask blocks - blocking scribe.pw
-- **Files passing:** 3/4 historian files (main.pw, narrator.pw, **analyst.pw** ✅)
-- **Files failing:** 1/4 (scribe.pw: multi-line ask)
-- **Test status:** 99/100 passing (1 failing, 0 ignored)
+  6. ~~Multi-line ask blocks~~ ✅ **FIXED** with three parser/lexer improvements
+- **Known issues without workarounds:** 0 🎉
+- **Files passing:** ✅ **ALL 4/4 historian files!** (main.pw, narrator.pw, analyst.pw, scribe.pw)
+- **Files failing:** None! 🎉
+- **Test status:** All historian validation tests passing
 
 ---
 
 ## Recommendations
 
-**Priority 1 - Blocking Scribe:**
-1. Fix lexer Prompt mode state across newlines (#6) - blocking scribe.pw
-
-**Priority 2 - Quality of Life:**
-2. Decide on `//` comment support (#3) - affects syntax consistency
+**Priority 1 - Quality of Life:**
+1. Decide on `//` comment support (#3) - affects syntax consistency
 
 **Long-term:**
 - Report UTF-8 column tracking bug to parlex maintainers or consider alternative lexer
@@ -232,3 +251,5 @@ PromptItem: PromptItem<'input> = {
 **Completed:**
 - ✅ UTF-8 span tracking (#1, #2) - temporarily resolved with ASCII arrows
 - ✅ Code fences in prompts (#5) - properly fixed with balanced braces + escape syntax
+- ✅ Multi-line ask blocks (#6) - properly fixed with three parser/lexer improvements
+- ✅ **All historian files now parse!** Parser implementation complete

@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_var_decl_no_init() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x
             }
         "#;
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn test_var_decl_with_init() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x = foo
             }
         "#;
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_var_decl_with_type() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x: string
             }
         "#;
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn test_var_decl_with_type_and_init() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x: int = 42
             }
         "#;
@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn test_if_statement() {
         let input = r#"
-            fun test() {
+            task test() {
                 if condition {
                     var x = 1
                 }
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn test_if_else_statement() {
         let input = r#"
-            fun test() {
+            task test() {
                 if x {
                     var a = 1
                 } else {
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn test_for_loop() {
         let input = r#"
-            fun test() {
+            task test() {
                 for var item in items {
                     var x = item
                 }
@@ -473,7 +473,7 @@ mod tests {
     #[test]
     fn test_while_loop() {
         let input = r#"
-            fun test() {
+            task test() {
                 while (condition) {
                     var x = 1
                 }
@@ -505,7 +505,7 @@ mod tests {
     #[test]
     fn test_return_no_value() {
         let input = r#"
-            fun test() {
+            task test() {
                 return
             }
         "#;
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn test_return_with_value() {
         let input = r#"
-            fun test() {
+            task test() {
                 return value
             }
         "#;
@@ -585,7 +585,7 @@ mod tests {
         // Key test: newlines SEPARATE statements (Swift-style)
         // return\nx means: return nothing, then x as next statement
         let input = r#"
-            fun test() {
+            task test() {
                 return
                 x
             }
@@ -620,7 +620,7 @@ mod tests {
     #[test]
     fn test_semicolon_separator() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x = 1; var y = 2; var z = 3
             }
         "#;
@@ -640,7 +640,7 @@ mod tests {
     #[test]
     fn test_multiple_statements_newline_separated() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x = 1
                 var y = 2
                 if x {
@@ -664,7 +664,7 @@ mod tests {
     #[test]
     fn test_expression_statement() {
         let input = r#"
-            fun test() {
+            task test() {
                 foo
                 42
                 true
@@ -690,7 +690,7 @@ mod tests {
     #[test]
     fn test_literals() {
         let input = r#"
-            fun test() {
+            task test() {
                 42
                 "hello"
                 true
@@ -718,7 +718,7 @@ mod tests {
     #[test]
     fn test_string_literal() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x = "hello"
             }
         "#;
@@ -755,7 +755,7 @@ mod tests {
     #[test]
     fn test_binary_arithmetic() {
         let input = r#"
-            fun test() {
+            task test() {
                 1 + 2
                 x - y
                 a * b
@@ -786,7 +786,7 @@ mod tests {
     fn test_operator_precedence() {
         // Test that 1 + 2 * 3 parses as 1 + (2 * 3), not (1 + 2) * 3
         let input = r#"
-            fun test() {
+            task test() {
                 var x = 1 + 2 * 3
             }
         "#;
@@ -822,7 +822,7 @@ mod tests {
     #[test]
     fn test_comparison_operators() {
         let input = r#"
-            fun test() {
+            task test() {
                 x == y
                 a != b
                 c < d
@@ -854,7 +854,7 @@ mod tests {
     #[test]
     fn test_logical_operators() {
         let input = r#"
-            fun test() {
+            task test() {
                 a && b
                 x || y
             }
@@ -884,7 +884,7 @@ mod tests {
     #[test]
     fn test_unary_operators() {
         let input = r#"
-            fun test() {
+            task test() {
                 !x
                 -5
             }
@@ -914,7 +914,7 @@ mod tests {
     #[test]
     fn test_function_call() {
         let input = r#"
-            fun test() {
+            task test() {
                 log(a, b, c)
             }
         "#;
@@ -942,7 +942,7 @@ mod tests {
     #[test]
     fn test_member_access() {
         let input = r#"
-            fun test() {
+            task test() {
                 commit.num
                 plan.length
             }
@@ -973,7 +973,7 @@ mod tests {
     #[test]
     fn test_method_call() {
         let input = r#"
-            fun test() {
+            task test() {
                 self.receive(timeout)
             }
         "#;
@@ -1008,7 +1008,7 @@ mod tests {
     #[test]
     fn test_index_access() {
         let input = r#"
-            fun test() {
+            task test() {
                 arr[i]
                 data[0]
             }
@@ -1042,7 +1042,7 @@ mod tests {
     #[test]
     fn test_range_operator() {
         let input = r#"
-            fun test() {
+            task test() {
                 1...3
             }
         "#;
@@ -1067,7 +1067,7 @@ mod tests {
     #[test]
     fn test_parenthesized_expr() {
         let input = r#"
-            fun test() {
+            task test() {
                 (x + y) * z
             }
         "#;
@@ -1101,7 +1101,7 @@ mod tests {
     #[test]
     fn test_complex_nested_expression() {
         let input = r#"
-            fun test() {
+            task test() {
                 var x = self.receive(timeout).status == "success"
             }
         "#;
@@ -1378,7 +1378,7 @@ mod tests {
     fn test_string_interpolation_simple_id() {
         // Test: $id form
         let input = r#"
-            fun test() {
+            task test() {
                 var greeting = "Hello $name"
             }
         "#;
@@ -1418,7 +1418,7 @@ mod tests {
     fn test_string_interpolation_expr() {
         // Test: ${expr} form
         let input = r#"
-            fun test() {
+            task test() {
                 var msg = "Total: ${x + y}"
             }
         "#;
@@ -1459,7 +1459,7 @@ mod tests {
         // Test: $(expr) form - parses expr as expression
         // Note: The content is parsed as a patchwork expression
         let input = r#"
-            fun test() {
+            task test() {
                 var session = "session-$(timestamp)"
             }
         "#;
@@ -1499,7 +1499,7 @@ mod tests {
     fn test_string_interpolation_multiple() {
         // Test: Multiple interpolations in one string
         let input = r#"
-            fun test() {
+            task test() {
                 var msg = "Hello $first $last"
             }
         "#;
@@ -1553,7 +1553,7 @@ mod tests {
     fn test_string_interpolation_all_forms() {
         // Test: Mix of $id, ${expr}, and $(expr)
         let input = r#"
-            fun test() {
+            task test() {
                 var path = "$base/${work_dir}/state-$(timestamp).json"
             }
         "#;
@@ -1632,7 +1632,7 @@ mod tests {
     fn test_string_interpolation_historian_examples() {
         // Test: Real examples from historian
         let input = r#"
-            fun test() {
+            task test() {
                 var session = "historian-${timestamp}"
                 var tmp_dir = "/tmp/${session_id}"
                 var state_file = "${work_dir}/state.json"
@@ -1647,7 +1647,7 @@ mod tests {
     #[test]
     fn test_array_literal_empty() {
         let input = r#"
-            fun test() {
+            task test() {
                 var arr = []
             }
         "#;
@@ -1677,7 +1677,7 @@ mod tests {
     #[test]
     fn test_array_literal_with_elements() {
         let input = r#"
-            fun test() {
+            task test() {
                 var arr = [1, 2, 3]
             }
         "#;
@@ -1708,7 +1708,7 @@ mod tests {
     #[test]
     fn test_array_with_objects() {
         let input = r#"
-            fun test() {
+            task test() {
                 var arr = [{num: 1}, {num: 2}]
             }
         "#;
@@ -1742,7 +1742,7 @@ mod tests {
     #[test]
     fn test_object_literal_empty() {
         let input = r#"
-            fun test() {
+            task test() {
                 var obj = {}
             }
         "#;
@@ -1767,7 +1767,7 @@ mod tests {
     #[test]
     fn test_object_literal_with_fields() {
         let input = r#"
-            fun test() {
+            task test() {
                 var obj = {x: 1, y: 2}
             }
         "#;
@@ -1798,7 +1798,7 @@ mod tests {
     #[test]
     fn test_object_literal_shorthand() {
         let input = r#"
-            fun test() {
+            task test() {
                 var obj = {session_id, timestamp}
             }
         "#;
@@ -1829,7 +1829,7 @@ mod tests {
     #[test]
     fn test_object_literal_mixed() {
         let input = r#"
-            fun test() {
+            task test() {
                 var obj = {x: 1, y}
             }
         "#;
@@ -1860,7 +1860,7 @@ mod tests {
     #[test]
     fn test_destructuring_simple() {
         let input = r#"
-            fun test() {
+            task test() {
                 var {x, y} = obj
             }
         "#;
@@ -1891,7 +1891,7 @@ mod tests {
     #[test]
     fn test_destructuring_with_types() {
         let input = r#"
-            fun test() {
+            task test() {
                 var {x: string, y: int} = obj
             }
         "#;
@@ -1999,7 +1999,7 @@ mod tests {
         // Test a complex expression from historian examples
         // Note: Object literals on one line to avoid newline parsing issues
         let input = r#"
-            fun test() {
+            task test() {
                 var plan = {commits: [{num: 1, description: "first"}], session_id}
             }
         "#;
@@ -2039,7 +2039,7 @@ mod tests {
     fn test_simple_type_annotation() {
         // Test simple type annotation in variable declaration
         let input = r#"
-            fun test() {
+            task test() {
                 var x: string
             }
         "#;
@@ -2072,7 +2072,7 @@ mod tests {
     fn test_array_type() {
         // Test array type: var items: [string]
         let input = r#"
-            fun test() {
+            task test() {
                 var items: [string]
             }
         "#;
@@ -2109,7 +2109,7 @@ mod tests {
     fn test_union_type() {
         // Test union type: status: "success" | "error"
         let input = r#"
-            fun test() {
+            task test() {
                 var status: "success" | "error"
             }
         "#;
@@ -2151,7 +2151,7 @@ mod tests {
     fn test_object_type() {
         // Test object type: var msg: {x: string, y: int}
         let input = r#"
-            fun test() {
+            task test() {
                 var msg: {x: string, y: int}
             }
         "#;
@@ -2195,7 +2195,7 @@ mod tests {
     fn test_destructuring_with_type_annotations() {
         // Test destructuring with type annotations: var {x: string, y: int} = msg
         let input = r#"
-            fun test() {
+            task test() {
                 var {x: string, y: int} = msg
             }
         "#;
@@ -2321,7 +2321,7 @@ mod tests {
     fn test_nested_array_type() {
         // Test nested array type: [[string]]
         let input = r#"
-            fun test() {
+            task test() {
                 var matrix: [[string]]
             }
         "#;
@@ -2363,7 +2363,7 @@ mod tests {
     fn test_complex_union_type() {
         // Test union of multiple types: string | int | "none"
         let input = r#"
-            fun test() {
+            task test() {
                 var value: string | int | "none"
             }
         "#;
@@ -2409,7 +2409,7 @@ mod tests {
     fn test_array_of_object_type() {
         // Test array of object type: [{name: string, value: int}]
         let input = r#"
-            fun test() {
+            task test() {
                 var records: [{name: string, value: int}]
             }
         "#;
@@ -2512,7 +2512,7 @@ mod tests {
 
     #[test]
     fn test_inline_comment() {
-        let input = "fun test() { var x = 1  # this is a comment\n}";
+        let input = "task test() { var x = 1  # this is a comment\n}";
         let program = parse(input).unwrap();
         assert_eq!(program.items.len(), 1);
 
@@ -2536,7 +2536,7 @@ mod tests {
 
     #[test]
     fn test_comment_before_declaration() {
-        let input = "# This is a comment\nfun test() {}";
+        let input = "# This is a comment\ntask test() {}";
         let program = parse(input).unwrap();
         assert_eq!(program.items.len(), 1);
     }
@@ -2544,7 +2544,7 @@ mod tests {
     #[test]
     fn test_comment_between_statements() {
         let input = r#"
-fun test() {
+task test() {
     var x = 1
     # Comment in the middle
     var y = 2
@@ -2634,7 +2634,7 @@ skill bar(x) {
     #[test]
     fn test_comment_in_expression() {
         let input = r#"
-fun test() {
+task test() {
     var result = 1 + 2  # adding numbers
 }
 "#;
@@ -2645,7 +2645,7 @@ fun test() {
     #[test]
     fn test_comment_in_if_statement() {
         let input = r#"
-fun test() {
+task test() {
     if x {  # condition
         # inside then block
         var y = 1
@@ -2675,7 +2675,7 @@ fun test() {
     #[test]
     fn test_comment_in_loop() {
         let input = r#"
-fun test() {
+task test() {
     for var i in items {
         # Process each item
         log(i)  # log it
@@ -2690,7 +2690,7 @@ fun test() {
     fn test_comment_with_type_annotation() {
         let input = r#"
 # Type annotation example
-fun test() {
+task test() {
     var x: string = "hello"  # string variable
 }
 "#;
@@ -2701,7 +2701,7 @@ fun test() {
     #[test]
     fn test_comment_with_spaces() {
         // Test comment with just spaces (more realistic than truly empty #)
-        let input = "# Comment line 1\n#  \n# Comment line 2\nfun test() {}";
+        let input = "# Comment line 1\n#  \n# Comment line 2\ntask test() {}";
         let program = parse(input).unwrap();
         assert_eq!(program.items.len(), 1);
     }
@@ -2890,5 +2890,27 @@ task test() {
 "#;
         let result = parse(input);
         assert!(result.is_ok(), "Failed to parse backtick in prompt: {:?}", result);
+    }
+}
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+
+    #[test]
+    fn test_debug_multiline_ask() {
+        let input = r#"
+            task test() {
+                var suggestion = ask {
+                    should to
+                }
+            }
+        "#;
+        let result = parse(input);
+        match &result {
+            Ok(ast) => println!("SUCCESS: {:?}", ast),
+            Err(e) => println!("ERROR: {:?}", e),
+        }
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
     }
 }
