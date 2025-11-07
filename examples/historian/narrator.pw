@@ -8,7 +8,7 @@ import std.log
 # @arg work_dir 
 #
 # @color orange
-task narrator(session_id, work_dir) {
+export task narrator(session_id, work_dir) {
     log(session_id, "NARRATOR", "Waiting for commit plan from analyst")
 
     var {

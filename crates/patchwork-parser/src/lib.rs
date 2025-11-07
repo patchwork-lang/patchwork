@@ -459,7 +459,7 @@ mod tests {
         };
 
         match &func.body.statements[0] {
-            Statement::For { var, iter, body } => {
+            Statement::ForIn { var, iter, body } => {
                 assert_eq!(*var, "item");
                 match iter {
                     Expr::Identifier(id) => assert_eq!(*id, "items"),
@@ -467,7 +467,7 @@ mod tests {
                 }
                 assert_eq!(body.statements.len(), 1);
             }
-            _ => panic!("Expected For statement"),
+            _ => panic!("Expected ForIn statement"),
         }
     }
 
@@ -3367,5 +3367,135 @@ mod debug_tests {
             Err(e) => println!("ERROR: {:?}", e),
         }
         assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_export_task() {
+        let input = "export task analyst(session_id, work_dir) {}";
+        let result = parse(input);
+        assert!(result.is_ok(), "Failed to parse export task: {:?}", result);
+
+        let program = result.unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Task(decl) => {
+                assert_eq!(decl.name, "analyst");
+                assert_eq!(decl.params.len(), 2);
+                assert!(decl.is_exported, "Task should be exported");
+            }
+            _ => panic!("Expected Task item"),
+        }
+    }
+
+    #[test]
+    fn test_export_skill() {
+        let input = "export skill rewriting_git_branch(changeset_description) {}";
+        let result = parse(input);
+        assert!(result.is_ok(), "Failed to parse export skill: {:?}", result);
+
+        let program = result.unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Skill(decl) => {
+                assert_eq!(decl.name, "rewriting_git_branch");
+                assert_eq!(decl.params.len(), 1);
+                assert!(decl.is_exported, "Skill should be exported");
+            }
+            _ => panic!("Expected Skill item"),
+        }
+    }
+
+    #[test]
+    fn test_export_function() {
+        let input = "export fun validate_trees(work_dir, branch) {}";
+        let result = parse(input);
+        assert!(result.is_ok(), "Failed to parse export function: {:?}", result);
+
+        let program = result.unwrap();
+        assert_eq!(program.items.len(), 1);
+
+        match &program.items[0] {
+            Item::Function(decl) => {
+                assert_eq!(decl.name, "validate_trees");
+                assert_eq!(decl.params.len(), 2);
+                assert!(decl.is_exported, "Function should be exported");
+            }
+            _ => panic!("Expected Function item"),
+        }
+    }
+
+    #[test]
+    fn test_non_exported_declarations() {
+        let input = r#"
+            task helper() {}
+            fun utility() {}
+            skill worker() {}
+        "#;
+        let result = parse(input);
+        assert!(result.is_ok(), "Failed to parse non-exported declarations: {:?}", result);
+
+        let program = result.unwrap();
+        assert_eq!(program.items.len(), 3);
+
+        match &program.items[0] {
+            Item::Task(decl) => {
+                assert!(!decl.is_exported, "Task should not be exported");
+            }
+            _ => panic!("Expected Task item"),
+        }
+
+        match &program.items[1] {
+            Item::Function(decl) => {
+                assert!(!decl.is_exported, "Function should not be exported");
+            }
+            _ => panic!("Expected Function item"),
+        }
+
+        match &program.items[2] {
+            Item::Skill(decl) => {
+                assert!(!decl.is_exported, "Skill should not be exported");
+            }
+            _ => panic!("Expected Skill item"),
+        }
+    }
+
+    #[test]
+    fn test_mixed_exported_and_non_exported() {
+        let input = r#"
+            export task main() {}
+            fun helper() {}
+            export fun utility() {}
+        "#;
+        let result = parse(input);
+        assert!(result.is_ok(), "Failed to parse mixed declarations: {:?}", result);
+
+        let program = result.unwrap();
+        assert_eq!(program.items.len(), 3);
+
+        match &program.items[0] {
+            Item::Task(decl) => {
+                assert_eq!(decl.name, "main");
+                assert!(decl.is_exported, "First task should be exported");
+            }
+            _ => panic!("Expected Task item"),
+        }
+
+        match &program.items[1] {
+            Item::Function(decl) => {
+                assert_eq!(decl.name, "helper");
+                assert!(!decl.is_exported, "Helper function should not be exported");
+            }
+            _ => panic!("Expected Function item"),
+        }
+
+        match &program.items[2] {
+            Item::Function(decl) => {
+                assert_eq!(decl.name, "utility");
+                assert!(decl.is_exported, "Utility function should be exported");
+            }
+            _ => panic!("Expected Function item"),
+        }
     }
 }

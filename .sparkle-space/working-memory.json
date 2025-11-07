@@ -1,34 +1,30 @@
 {
-  "currentFocus": "Parser enhancements complete - shell operators as first-class AST nodes",
+  "currentFocus": "Export syntax implementation complete",
   "recentAchievements": [
-    "Removed Placeholder variant from Expr enum (cleanup complete)",
-    "Implemented task(...) operator for parallel execution with proper syntax",
-    "Added prompt block text node merging during parsing for cleaner AST",
-    "Enhanced AST with proper shell operator structure (ShellPipe, ShellAnd, ShellOr, ShellRedirect)",
-    "Shell operators now first-class expressions with correct precedence, not literal arguments",
-    "Created patchwork-parser CLI tool for AST inspection",
-    "All tests passing: 113 parser tests, 57 lexer tests",
-    "analyst.pw parses correctly with proper shell operator semantics"
+    "Added 'export' keyword to lexer and parser",
+    "Extended AST nodes (SkillDecl, TaskDecl, FunctionDecl) with is_exported field",
+    "Updated parser grammar to support optional export prefix on declarations",
+    "Enhanced AST dump to display export status",
+    "Added 5 comprehensive tests for export syntax (all passing)",
+    "Verified all historian examples parse correctly with export declarations",
+    "Full test suite passing: 118 tests (up from 113)"
   ],
   "nextSteps": [
-    "Parser is feature-complete for all planned milestones",
-    "Ready for next phase: AST visitor pattern, pretty printer, semantic analysis, or interpreter",
-    "Optional: Error reporting tests (Step 9) if desired",
-    "Consider documenting the shell operator enhancement in parser-design.md"
+    "Parser feature-complete with export syntax matching import",
+    "Ready for next phase: AST visitors, pretty printer, semantic analysis, or interpreter",
+    "Consider documenting export syntax in parser-design.md"
   ],
-  "collaborativeState": "Major enhancements complete - parser now has clean semantic AST representation",
+  "collaborativeState": "Clean implementation complete - export syntax mirrors import elegantly",
   "keyInsights": [
-    "Shell operators benefit from proper AST representation rather than string literals",
-    "Parser precedence hierarchy: || < && < | < redirects < commands",
-    "Text merging in prompts reduces AST complexity significantly",
-    "task(...) syntax avoids LALR(1) conflicts better than prefix operator",
-    "CommandSubst now wraps arbitrary shell expressions, not just simple commands"
+    "Optional grammar pattern: <is_exported:\"export\"?> captures presence cleanly",
+    "Boolean flag in AST (is_exported) simpler than separate exported/non-exported variants",
+    "AST dump prefix pattern keeps output readable",
+    "Test coverage ensures both exported and non-exported declarations work correctly"
   ],
   "criticalAwareness": [
-    "Shell operator precedence: || (lowest) > && > | > redirects (highest)",
-    "RedirectOp enum includes: Out, Append, In, ErrOut, ErrToOut",
-    "CommandSubst changed from {name, args} to Box<Expr> wrapper",
-    "All historian examples parse with full shell operator semantics",
-    "Parser ready for interpreter implementation or further tooling"
+    "Export syntax is optional - declarations work with or without it",
+    "All three declaration types support export: task, skill, fun",
+    "Historian examples use export for top-level entry points",
+    "Parser token, lexer rule, and adapter all need synchronization for new keywords"
   ]
 }

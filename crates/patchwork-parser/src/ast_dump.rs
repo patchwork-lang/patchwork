@@ -28,17 +28,20 @@ fn write_item(out: &mut String, item: &Item, indent: usize) -> std::fmt::Result 
             write_import_path(out, &decl.path, indent + 1)?;
         }
         Item::Skill(decl) => {
-            writeln!(out, "{}Skill: {}", prefix, decl.name)?;
+            let export_prefix = if decl.is_exported { "export " } else { "" };
+            writeln!(out, "{}{}Skill: {}", prefix, export_prefix, decl.name)?;
             write_params(out, &decl.params, indent + 1)?;
             write_block(out, &decl.body, indent + 1)?;
         }
         Item::Task(decl) => {
-            writeln!(out, "{}Task: {}", prefix, decl.name)?;
+            let export_prefix = if decl.is_exported { "export " } else { "" };
+            writeln!(out, "{}{}Task: {}", prefix, export_prefix, decl.name)?;
             write_params(out, &decl.params, indent + 1)?;
             write_block(out, &decl.body, indent + 1)?;
         }
         Item::Function(decl) => {
-            writeln!(out, "{}Function: {}", prefix, decl.name)?;
+            let export_prefix = if decl.is_exported { "export " } else { "" };
+            writeln!(out, "{}{}Function: {}", prefix, export_prefix, decl.name)?;
             write_params(out, &decl.params, indent + 1)?;
             write_block(out, &decl.body, indent + 1)?;
         }
@@ -115,7 +118,7 @@ fn write_statement(out: &mut String, stmt: &Statement, indent: usize) -> std::fm
                 write_block(out, else_blk, indent + 2)?;
             }
         }
-        Statement::For { var, iter, body } => {
+        Statement::ForIn { var, iter, body } => {
             writeln!(out, "{}For: var {} in", prefix, var)?;
             write_expr(out, iter, indent + 1)?;
             write_block(out, body, indent + 1)?;

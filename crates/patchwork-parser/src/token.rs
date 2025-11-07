@@ -20,6 +20,7 @@ pub enum ParserToken<'input> {
 
     // Keywords
     Import,
+    Export,
     From,
     Var,
     If,

@@ -40,6 +40,7 @@ pub struct SkillDecl<'input> {
     pub name: &'input str,
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
+    pub is_exported: bool,
 }
 
 /// Task declaration: `task name(params) { body }`
@@ -48,6 +49,7 @@ pub struct TaskDecl<'input> {
     pub name: &'input str,
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
+    pub is_exported: bool,
 }
 
 /// Function declaration: `fun name(params) { body }`
@@ -56,6 +58,7 @@ pub struct FunctionDecl<'input> {
     pub name: &'input str,
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
+    pub is_exported: bool,
 }
 
 /// Type declaration: `type name = TypeExpr`
@@ -117,8 +120,8 @@ pub enum Statement<'input> {
         then_block: Block<'input>,
         else_block: Option<Block<'input>>,
     },
-    /// For loop: `for var x in expr { ... }`
-    For {
+    /// For-in loop: `for var x in expr { ... }`
+    ForIn {
         var: &'input str,
         iter: Expr<'input>,
         body: Block<'input>,

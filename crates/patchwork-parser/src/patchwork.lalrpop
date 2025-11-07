@@ -30,6 +30,7 @@ extern {
 
         // Keywords
         "import" => ParserToken::Import,
+        "export" => ParserToken::Export,
         "from" => ParserToken::From,
         "var" => ParserToken::Var,
         "if" => ParserToken::If,
@@ -199,24 +200,24 @@ ImportPath: ImportPath<'input> = {
 // Skill declaration: skill name(params) { body }
 SkillDecl: SkillDecl<'input> = {
     // Accept both "skill test (" and "skill test("
-    "skill" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        SkillDecl { name, params, body }
+    <is_exported:"export"?> "skill" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        SkillDecl { name, params, body, is_exported: is_exported.is_some() }
     },
 };
 
 // Task declaration: task name(params) { body }
 TaskDecl: TaskDecl<'input> = {
     // Accept both "task test (" and "task test("
-    "task" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        TaskDecl { name, params, body }
+    <is_exported:"export"?> "task" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        TaskDecl { name, params, body, is_exported: is_exported.is_some() }
     },
 };
 
 // Function declaration: fun name(params) { body }
 FunctionDecl: FunctionDecl<'input> = {
     // Accept both "fun test (" and "fun test("
-    "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        FunctionDecl { name, params, body }
+    <is_exported:"export"?> "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        FunctionDecl { name, params, body, is_exported: is_exported.is_some() }
     },
 };
 
@@ -326,7 +327,7 @@ IfStmt: Statement<'input> = {
 // For loop (block provides clear termination)
 ForStmt: Statement<'input> = {
     "for" "var" <var:identifier> "in" <iter:Expr> <body:Block> => {
-        Statement::For { var, iter, body }
+        Statement::ForIn { var, iter, body }
     },
 };
 

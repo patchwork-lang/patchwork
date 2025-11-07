@@ -3,7 +3,7 @@ import ./{analyst, narrator, scribe}
 # Rewrites the current git branch into clean, logical commits by orchestrating three tasks.
 #
 # @arg changeset_description Text describing the changeset (e.g., pull request)
-skill rewriting_git_branch(changeset_description) {
+export skill rewriting_git_branch(changeset_description) {
     var timestamp = $(date +%Y%m%d-%H%M%S)
     var session_id = "historian-${timestamp}"
     var work_dir = "/tmp/${session_id}"

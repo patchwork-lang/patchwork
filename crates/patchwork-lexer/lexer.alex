@@ -18,6 +18,7 @@ Ask: <Code> ask
 Do: <Prompt> do
 
 Import: <Code> import
+Export: <Code> export
 From: <Code> from
 Var: <Code> var
 If: <Code> if

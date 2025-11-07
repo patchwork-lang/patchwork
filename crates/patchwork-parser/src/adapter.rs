@@ -102,6 +102,7 @@ where
             Rule::Ask => ParserToken::Ask,
             Rule::Do => ParserToken::Do,
             Rule::Import => ParserToken::Import,
+            Rule::Export => ParserToken::Export,
             Rule::From => ParserToken::From,
             Rule::Var => ParserToken::Var,
             Rule::If => ParserToken::If,
