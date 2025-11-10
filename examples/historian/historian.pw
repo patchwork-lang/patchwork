@@ -1,6 +1,6 @@
 import ./{analyst, narrator, scribe}
 
-export trait Historian {
+export default trait Historian {
     # Rewrites a git commit sequence for a changeset to create a clean branch with commits
     # optimized for readability and review.
     #
