@@ -107,8 +107,8 @@ pub enum Pattern<'input> {
     Ignore,
     /// Object destructuring pattern: `var {x, y} = ...`
     Object(Vec<ObjectPatternField<'input>>),
-    /// Tuple destructuring pattern: `var (x, y, z) = ...`
-    Tuple(Vec<Pattern<'input>>),
+    /// Array destructuring pattern: `var [x, y, z] = ...`
+    Array(Vec<Pattern<'input>>),
 }
 
 /// Field in an object destructuring pattern

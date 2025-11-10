@@ -497,13 +497,13 @@ Pattern: Pattern<'input> = {
     // Object destructuring pattern: var {x, y} = ...
     "{" <fields:ObjectPatternFieldList> "}" => Pattern::Object(fields),
 
-    // Tuple destructuring pattern: var (x, y, z) = ...
-    "(" <patterns:PatternList> ")" => Pattern::Tuple(patterns),
+    // Array destructuring pattern: var [x, y, z] = ...
+    "[" <patterns:PatternList> "]" => Pattern::Array(patterns),
 };
 
-// Pattern list for tuple destructuring (comma-separated patterns)
+// Pattern list for array destructuring (comma-separated patterns)
 PatternList: Vec<Pattern<'input>> = {
-    // Empty tuple (though uncommon)
+    // Empty array pattern (though uncommon)
     => vec![],
     // Single pattern
     <head:Pattern> => vec![head],

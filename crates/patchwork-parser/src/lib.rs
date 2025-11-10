@@ -177,8 +177,8 @@ mod tests {
 
             skill rewriting_git_branch(changeset_description) {}
 
-            task analyst(session_id) {}
-            task narrator(session_id) {}
+            agent analyst(session_id) {}
+            agent narrator(session_id) {}
 
             fun helper() {}
         "#;
@@ -1306,7 +1306,7 @@ mod tests {
     fn test_nested_prompts_in_binary_expr() {
         // think { } || ask { } is a binary OR expression
         let input = r#"
-            task foo() {
+            agent foo() {
                 var x = think { analyze } || ask { what should I do? }
             }
         "#;
@@ -1318,7 +1318,7 @@ mod tests {
     fn test_balanced_braces_in_prompt() {
         // Test that balanced braces in prompts are treated as literal text
         let input = r#"
-            task example() {
+            agent example() {
                 var result = think {
                     Return an object: {name: "test", value: 42}
                 }
@@ -1332,7 +1332,7 @@ mod tests {
     fn test_nested_balanced_braces_in_prompt() {
         // Test nested balanced braces
         let input = r#"
-            task example() {
+            agent example() {
                 var result = think {
                     Return: {outer: {inner: 123}}
                 }
@@ -1346,7 +1346,7 @@ mod tests {
     fn test_prompt_escape_syntax() {
         // Test $'<char>' escape syntax for literal characters
         let input = r#"
-            task example() {
+            agent example() {
                 var result = think {
                     Use $'{' for literal left brace
                     Use $'}' for literal right brace
@@ -1362,7 +1362,7 @@ mod tests {
     fn test_balanced_braces_with_interpolation() {
         // Test that interpolation still works inside balanced braces
         let input = r#"
-            task example() {
+            agent example() {
                 var name = "test"
                 var result = think {
                     Object: {name: $name, value: ${40 + 2}}
@@ -1377,7 +1377,7 @@ mod tests {
     fn test_adjacent_text_nodes_merged() {
         // Test that adjacent text nodes in prompt blocks are merged into single Text node
         let input = r#"
-            task example() {
+            agent example() {
                 var result = think {
                     This is a multi-word sentence
                     with $variable interpolation and
@@ -1387,7 +1387,7 @@ mod tests {
         "#;
         let program = parse(input).expect("Should parse");
 
-        // Extract the prompt block from: program -> task -> var decl -> think expr
+        // Extract the prompt block from: program -> agent -> var decl -> think expr
         match &program.items[0] {
             Item::Agent(task) => {
                 match &task.body.statements[0] {
@@ -2630,7 +2630,7 @@ agent test() {
         let input = r#"
 # @arg session_id
 # @arg work_dir
-task foo(session_id, work_dir) {}
+agent foo(session_id, work_dir) {}
 "#;
         let program = parse(input).unwrap();
         assert_eq!(program.items.len(), 1);
@@ -3140,7 +3140,7 @@ skill rewriting_git_branch(changeset_description) {
         // Verify dump contains key structural elements from analyst.pw
         assert!(dump.contains("Program:"));
         assert!(dump.contains("Import:"));
-        assert!(dump.contains("Task: analyst"));
+        assert!(dump.contains("Agent: analyst"));
         assert!(dump.contains("VarDecl:"));
         assert!(dump.contains("If:"));
         assert!(dump.contains("Think:"));
@@ -3371,9 +3371,9 @@ mod debug_tests {
 
     #[test]
     fn test_export_task() {
-        let input = "export task analyst(session_id, work_dir) {}";
+        let input = "export agent analyst(session_id, work_dir) {}";
         let result = parse(input);
-        assert!(result.is_ok(), "Failed to parse export task: {:?}", result);
+        assert!(result.is_ok(), "Failed to parse export agent: {:?}", result);
 
         let program = result.unwrap();
         assert_eq!(program.items.len(), 1);
@@ -3382,7 +3382,7 @@ mod debug_tests {
             Item::Agent(decl) => {
                 assert_eq!(decl.name, "analyst");
                 assert_eq!(decl.params.len(), 2);
-                assert!(decl.is_exported, "Task should be exported");
+                assert!(decl.is_exported, "Agent should be exported");
             }
             _ => panic!("Expected Agent item"),
         }
@@ -3429,7 +3429,7 @@ mod debug_tests {
     #[test]
     fn test_non_exported_declarations() {
         let input = r#"
-            task helper() {}
+            agent helper() {}
             fun utility() {}
             skill worker() {}
         "#;
@@ -3441,7 +3441,7 @@ mod debug_tests {
 
         match &program.items[0] {
             Item::Agent(decl) => {
-                assert!(!decl.is_exported, "Task should not be exported");
+                assert!(!decl.is_exported, "Agent should not be exported");
             }
             _ => panic!("Expected Agent item"),
         }
@@ -3501,13 +3501,13 @@ mod debug_tests {
 }
 
     #[test]
-    fn test_tuple_pattern_simple() {
+    fn test_array_pattern_simple() {
         let input = r#"
             agent test() {
-                var (x, y, z) = triple()
+                var [x, y, z] = triple()
             }
         "#;
-        let program = parse(input).expect("Should parse simple tuple pattern");
+        let program = parse(input).expect("Should parse simple array pattern");
 
         let func = match &program.items[0] {
             Item::Agent(f) => f,
@@ -3517,7 +3517,7 @@ mod debug_tests {
         match &func.body.statements[0] {
             Statement::VarDecl { pattern, init: _ } => {
                 match pattern {
-                    Pattern::Tuple(patterns) => {
+                    Pattern::Array(patterns) => {
                         assert_eq!(patterns.len(), 3);
                         match &patterns[0] {
                             Pattern::Identifier { name, .. } => assert_eq!(*name, "x"),
@@ -3532,7 +3532,7 @@ mod debug_tests {
                             _ => panic!("Expected identifier pattern"),
                         }
                     }
-                    _ => panic!("Expected tuple pattern"),
+                    _ => panic!("Expected array pattern"),
                 }
             }
             _ => panic!("Expected var decl"),
@@ -3540,13 +3540,13 @@ mod debug_tests {
     }
 
     #[test]
-    fn test_tuple_pattern_with_ignore() {
+    fn test_array_pattern_with_ignore() {
         let input = r#"
             agent test() {
-                var (_, result, _) = spawn().await
+                var [_, result, _] = spawn().await
             }
         "#;
-        let program = parse(input).expect("Should parse tuple pattern with ignore");
+        let program = parse(input).expect("Should parse array pattern with ignore");
 
         let func = match &program.items[0] {
             Item::Agent(f) => f,
@@ -3556,7 +3556,7 @@ mod debug_tests {
         match &func.body.statements[0] {
             Statement::VarDecl { pattern, init: _ } => {
                 match pattern {
-                    Pattern::Tuple(patterns) => {
+                    Pattern::Array(patterns) => {
                         assert_eq!(patterns.len(), 3);
                         assert!(matches!(patterns[0], Pattern::Ignore));
                         match &patterns[1] {
@@ -3565,7 +3565,7 @@ mod debug_tests {
                         }
                         assert!(matches!(patterns[2], Pattern::Ignore));
                     }
-                    _ => panic!("Expected tuple pattern"),
+                    _ => panic!("Expected array pattern"),
                 }
             }
             _ => panic!("Expected var decl"),

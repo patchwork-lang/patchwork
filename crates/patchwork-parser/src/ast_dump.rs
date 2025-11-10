@@ -209,8 +209,8 @@ fn write_pattern(out: &mut String, pattern: &Pattern, indent: usize) -> std::fmt
                 }
             }
         }
-        Pattern::Tuple(patterns) => {
-            writeln!(out, "{}TuplePattern:", prefix)?;
+        Pattern::Array(patterns) => {
+            writeln!(out, "{}ArrayPattern:", prefix)?;
             for pattern in patterns {
                 write_pattern(out, pattern, indent + 1)?;
             }

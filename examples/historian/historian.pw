@@ -7,7 +7,7 @@ export default trait Historian: Agent {
     # @skill narrate
     # @command narrate
     fun narrate(description: string) {
-        var (_, result, _) = spawn(analyst(self), narrator(self), scribe(self)).await
+        var [_, result, _] = spawn(analyst(self), narrator(self), scribe(self)).await
 
         var { original_branch, clean_branch, commits_created } = result
 
