@@ -8,7 +8,7 @@ import std.log
 # @arg changeset_description
 #
 # @color purple
-export task analyst(session_id, work_dir, changeset_description) {
+export default agent analyst(session_id, work_dir, changeset_description) {
     $ mkdir -p "${work_dir}/narrator"
     $ mkdir -p "${work_dir}/analyst"
 

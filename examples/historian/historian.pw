@@ -1,6 +1,4 @@
-import ./analyst/analyst,
-    ./narrator/narrator,
-    ./scribe/scribe
+import ./{analyst, narrator, scribe}
 
 export trait Historian {
     # Rewrites a git commit sequence for a changeset to create a clean branch with commits

@@ -7,7 +7,7 @@ import std.log
 # @arg work_dir 
 #
 # @color cyan
-export task scribe(session_id, work_dir) {
+export default agent scribe(session_id, work_dir) {
     log("Waiting for build config from analyst")
 
     var {

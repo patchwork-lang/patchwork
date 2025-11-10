@@ -8,7 +8,7 @@ import std.log
 # @arg work_dir 
 #
 # @color orange
-export task narrator(session_id, work_dir) {
+export default agent narrator(session_id, work_dir) {
     log("Waiting for commit plan from analyst")
 
     var {
