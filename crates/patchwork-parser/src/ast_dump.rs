@@ -28,22 +28,33 @@ fn write_item(out: &mut String, item: &Item, indent: usize) -> std::fmt::Result 
             write_import_path(out, &decl.path, indent + 1)?;
         }
         Item::Skill(decl) => {
-            let export_prefix = if decl.is_exported { "export " } else { "" };
-            writeln!(out, "{}{}Skill: {}", prefix, export_prefix, decl.name)?;
+            let mut modifiers = String::new();
+            if decl.is_exported { modifiers.push_str("export "); }
+            if decl.is_default { modifiers.push_str("default "); }
+            writeln!(out, "{}{}Skill: {}", prefix, modifiers, decl.name)?;
             write_params(out, &decl.params, indent + 1)?;
             write_block(out, &decl.body, indent + 1)?;
         }
-        Item::Task(decl) => {
-            let export_prefix = if decl.is_exported { "export " } else { "" };
-            writeln!(out, "{}{}Task: {}", prefix, export_prefix, decl.name)?;
+        Item::Agent(decl) => {
+            let mut modifiers = String::new();
+            if decl.is_exported { modifiers.push_str("export "); }
+            if decl.is_default { modifiers.push_str("default "); }
+            writeln!(out, "{}{}Agent: {}", prefix, modifiers, decl.name)?;
             write_params(out, &decl.params, indent + 1)?;
             write_block(out, &decl.body, indent + 1)?;
+        }
+        Item::Trait(decl) => {
+            let mut modifiers = String::new();
+            if decl.is_exported { modifiers.push_str("export "); }
+            if decl.is_default { modifiers.push_str("default "); }
+            writeln!(out, "{}{}Trait: {}", prefix, modifiers, decl.name)?;
+            writeln!(out, "{}  Methods:", prefix)?;
+            for method in &decl.methods {
+                write_function_decl(out, method, indent + 2)?;
+            }
         }
         Item::Function(decl) => {
-            let export_prefix = if decl.is_exported { "export " } else { "" };
-            writeln!(out, "{}{}Function: {}", prefix, export_prefix, decl.name)?;
-            write_params(out, &decl.params, indent + 1)?;
-            write_block(out, &decl.body, indent + 1)?;
+            write_function_decl(out, decl, indent)?;
         }
         Item::Type(decl) => {
             writeln!(out, "{}Type: {} =", prefix, decl.name)?;
@@ -63,6 +74,17 @@ fn write_import_path(out: &mut String, path: &ImportPath, indent: usize) -> std:
             writeln!(out, "{}RelativeMulti: ./{{{}}}", prefix, names.join(", "))?;
         }
     }
+    Ok(())
+}
+
+fn write_function_decl(out: &mut String, decl: &FunctionDecl, indent: usize) -> std::fmt::Result {
+    let prefix = "  ".repeat(indent);
+    let mut modifiers = String::new();
+    if decl.is_exported { modifiers.push_str("export "); }
+    if decl.is_default { modifiers.push_str("default "); }
+    writeln!(out, "{}{}Function: {}", prefix, modifiers, decl.name)?;
+    write_params(out, &decl.params, indent + 1)?;
+    write_block(out, &decl.body, indent + 1)?;
     Ok(())
 }
 
@@ -256,16 +278,6 @@ fn write_expr(out: &mut String, expr: &Expr, indent: usize) -> std::fmt::Result 
             writeln!(out, "{}Ask:", prefix)?;
             write_prompt_block(out, prompt, indent + 1)?;
         }
-        Expr::Await(e) => {
-            writeln!(out, "{}Await:", prefix)?;
-            write_expr(out, e, indent + 1)?;
-        }
-        Expr::Task(tasks) => {
-            writeln!(out, "{}Task:", prefix)?;
-            for task in tasks {
-                write_expr(out, task, indent + 1)?;
-            }
-        }
         Expr::BareCommand { name, args } => {
             writeln!(out, "{}BareCommand: {}", prefix, name)?;
             if !args.is_empty() {
@@ -313,6 +325,10 @@ fn write_expr(out: &mut String, expr: &Expr, indent: usize) -> std::fmt::Result 
         }
         Expr::PostDecrement(e) => {
             writeln!(out, "{}PostDecrement:", prefix)?;
+            write_expr(out, e, indent + 1)?;
+        }
+        Expr::Await(e) => {
+            writeln!(out, "{}Await:", prefix)?;
             write_expr(out, e, indent + 1)?;
         }
         Expr::Paren(e) => {

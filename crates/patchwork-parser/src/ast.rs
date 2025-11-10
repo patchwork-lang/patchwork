@@ -9,12 +9,13 @@ pub struct Program<'input> {
     pub items: Vec<Item<'input>>,
 }
 
-/// Top-level item (import, skill, task, function, or type declaration)
+/// Top-level item (import, skill, agent, trait, function, or type declaration)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item<'input> {
     Import(ImportDecl<'input>),
     Skill(SkillDecl<'input>),
-    Task(TaskDecl<'input>),
+    Agent(AgentDecl<'input>),
+    Trait(TraitDecl<'input>),
     Function(FunctionDecl<'input>),
     Type(TypeDeclItem<'input>),
 }
@@ -41,15 +42,26 @@ pub struct SkillDecl<'input> {
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
     pub is_exported: bool,
+    pub is_default: bool,
 }
 
-/// Task declaration: `task name(params) { body }`
+/// Agent declaration: `agent name(params) { body }`
 #[derive(Debug, Clone, PartialEq)]
-pub struct TaskDecl<'input> {
+pub struct AgentDecl<'input> {
     pub name: &'input str,
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
     pub is_exported: bool,
+    pub is_default: bool,
+}
+
+/// Trait declaration: `trait name { methods }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraitDecl<'input> {
+    pub name: &'input str,
+    pub methods: Vec<FunctionDecl<'input>>,
+    pub is_exported: bool,
+    pub is_default: bool,
 }
 
 /// Function declaration: `fun name(params) { body }`
@@ -59,6 +71,7 @@ pub struct FunctionDecl<'input> {
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
     pub is_exported: bool,
+    pub is_default: bool,
 }
 
 /// Type declaration: `type name = TypeExpr`
@@ -288,11 +301,8 @@ pub enum Expr<'input> {
     PostDecrement(Box<Expr<'input>>),
     /// Parenthesized expression: `(expr)`
     Paren(Box<Expr<'input>>),
-    /// Await expression: `await task_call()`
+    /// Await expression: `expr.await`
     Await(Box<Expr<'input>>),
-    /// Task parallel execution: `task (expr1, expr2, expr3)`
-    /// Semantically like Promise.race() - invokes tasks in parallel
-    Task(Vec<Expr<'input>>),
     /// Think expression: `think { ... }`
     Think(PromptBlock<'input>),
     /// Ask expression: `ask { ... }`

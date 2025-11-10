@@ -38,9 +38,11 @@ extern {
         "for" => ParserToken::For,
         "while" => ParserToken::While,
         "await" => ParserToken::Await,
-        "task" => ParserToken::Task,
+        "agent" => ParserToken::Agent,
+        "trait" => ParserToken::Trait,
         "skill" => ParserToken::Skill,
         "fun" => ParserToken::Fun,
+        "default" => ParserToken::Default,
         "type" => ParserToken::Type,
         "return" => ParserToken::Return,
         "succeed" => ParserToken::Succeed,
@@ -138,10 +140,11 @@ ObjectKey: &'input str = {
     "else" => "else",
     "for" => "for",
     "while" => "while",
-    "await" => "await",
-    "task" => "task",
+    "agent" => "agent",
+    "trait" => "trait",
     "skill" => "skill",
     "fun" => "fun",
+    "default" => "default",
     "return" => "return",
     "succeed" => "succeed",
     "fail" => "fail",
@@ -169,7 +172,8 @@ pub Program: Program<'input> = {
 Item: Item<'input> = {
     <ImportDecl> => Item::Import(<>),
     <SkillDecl> => Item::Skill(<>),
-    <TaskDecl> => Item::Task(<>),
+    <AgentDecl> => Item::Agent(<>),
+    <TraitDecl> => Item::Trait(<>),
     <FunctionDecl> => Item::Function(<>),
     <TypeDecl> => Item::Type(<>),
 };
@@ -200,24 +204,36 @@ ImportPath: ImportPath<'input> = {
 // Skill declaration: skill name(params) { body }
 SkillDecl: SkillDecl<'input> = {
     // Accept both "skill test (" and "skill test("
-    <is_exported:"export"?> "skill" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        SkillDecl { name, params, body, is_exported: is_exported.is_some() }
+    <is_exported:"export"?> <is_default:"default"?> "skill" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        SkillDecl { name, params, body, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
     },
 };
 
-// Task declaration: task name(params) { body }
-TaskDecl: TaskDecl<'input> = {
-    // Accept both "task test (" and "task test("
-    <is_exported:"export"?> "task" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        TaskDecl { name, params, body, is_exported: is_exported.is_some() }
+// Agent declaration: agent name(params) { body }
+AgentDecl: AgentDecl<'input> = {
+    // Accept both "agent test (" and "agent test("
+    <is_exported:"export"?> <is_default:"default"?> "agent" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        AgentDecl { name, params, body, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+    },
+};
+
+// Trait declaration: trait name { methods }
+TraitDecl: TraitDecl<'input> = {
+    <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> "{" newline* <head:FunctionDecl> <tail:(newline+ <FunctionDecl>)*> newline* "}" => {
+        let mut methods = vec![head];
+        methods.extend(tail);
+        TraitDecl { name, methods, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+    },
+    <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> "{" newline* "}" => {
+        TraitDecl { name, methods: vec![], is_exported: is_exported.is_some(), is_default: is_default.is_some() }
     },
 };
 
 // Function declaration: fun name(params) { body }
 FunctionDecl: FunctionDecl<'input> = {
     // Accept both "fun test (" and "fun test("
-    <is_exported:"export"?> "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        FunctionDecl { name, params, body, is_exported: is_exported.is_some() }
+    <is_exported:"export"?> <is_default:"default"?> "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        FunctionDecl { name, params, body, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
     },
 };
 
@@ -609,14 +625,15 @@ UnaryExpr: Expr<'input> = {
         op: UnOp::Neg,
         operand: Box::new(operand),
     },
-    // Await expression: await task_call()
-    "await" <operand:UnaryExpr> => Expr::Await(Box::new(operand)),
     PostfixExpr,
 };
 
 // Postfix expressions: member access, call, index
 // These are left-associative and have the same precedence
 PostfixExpr: Expr<'input> = {
+    // Await: expr.await (must come before general member access to avoid ambiguity)
+    <operand:PostfixExpr> "." "await" => Expr::Await(Box::new(operand)),
+
     // Member access: obj.field (allows keywords as field names)
     <object:PostfixExpr> "." <field:ObjectKey> => Expr::Member {
         object: Box::new(object),
@@ -677,10 +694,6 @@ PrimaryExpr: Expr<'input> = {
 
     // Parenthesized expression
     "(" <e:Expr> ")" => Expr::Paren(Box::new(e)),
-
-    // Task operator: task(expr1, expr2, expr3)
-    // Like function call syntax but keyword instead of identifier
-    "task" "(" <tasks:ExprList> ")" => Expr::Task(tasks),
 };
 
 // Command arguments - one or more arguments for bare commands

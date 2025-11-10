@@ -1,30 +1,34 @@
 {
-  "currentFocus": "Export syntax implementation complete",
+  "currentFocus": "Completed syntactic changes to Patchwork parser: task→agent, added trait/default/await keywords",
   "recentAchievements": [
-    "Added 'export' keyword to lexer and parser",
-    "Extended AST nodes (SkillDecl, TaskDecl, FunctionDecl) with is_exported field",
-    "Updated parser grammar to support optional export prefix on declarations",
-    "Enhanced AST dump to display export status",
-    "Added 5 comprehensive tests for export syntax (all passing)",
-    "Verified all historian examples parse correctly with export declarations",
-    "Full test suite passing: 118 tests (up from 113)"
+    "Eliminated 'task' keyword, added 'agent' keyword for agent declarations",
+    "Added 'trait' keyword with full TraitDecl support for trait Name { methods } syntax",
+    "Added 'default' keyword as optional export modifier (export default agent/skill/fun/trait)",
+    "Implemented postfix .await syntax (expr.await) matching Rust style",
+    "Removed prefix await syntax, keeping only postfix form",
+    "Renamed PostfixAwait to Await (simplified since only one variant)",
+    "Updated all AST structures with is_default: bool field",
+    "All 105 parser tests passing",
+    "analyst.pw successfully parses with 'export default agent analyst(...)'"
   ],
   "nextSteps": [
-    "Parser feature-complete with export syntax matching import",
-    "Ready for next phase: AST visitors, pretty printer, semantic analysis, or interpreter",
-    "Consider documenting export syntax in parser-design.md"
+    "Consider implementing parameter type annotations (description: string)",
+    "Consider implementing throw statements",
+    "Consider implementing tuple destructuring",
+    "Consider implementing do/else patterns",
+    "Parser ready for semantic analysis or interpreter work"
   ],
-  "collaborativeState": "Clean implementation complete - export syntax mirrors import elegantly",
+  "collaborativeState": "Clean feature implementation complete - all syntactic changes successful",
   "keyInsights": [
-    "Optional grammar pattern: <is_exported:\"export\"?> captures presence cleanly",
-    "Boolean flag in AST (is_exported) simpler than separate exported/non-exported variants",
-    "AST dump prefix pattern keeps output readable",
-    "Test coverage ensures both exported and non-exported declarations work correctly"
+    "Grammar rule ordering matters in LALRPOP - .await must come before general member access to avoid ambiguity",
+    "Removed 'await' from ObjectKey list to prevent conflicts with .await special syntax",
+    "trait declarations use head/tail pattern to avoid grammar ambiguity with newlines",
+    "All declarations (agent, skill, fun, trait) now support both export and default modifiers"
   ],
   "criticalAwareness": [
-    "Export syntax is optional - declarations work with or without it",
-    "All three declaration types support export: task, skill, fun",
-    "Historian examples use export for top-level entry points",
-    "Parser token, lexer rule, and adapter all need synchronization for new keywords"
+    "Some historian examples still have parse errors due to unimplemented features (not our changes)",
+    "Parameter type annotations not yet supported",
+    "throw statements not yet implemented",
+    "spawn() function is library code (not special syntax)"
   ]
 }

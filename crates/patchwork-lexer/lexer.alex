@@ -26,9 +26,11 @@ Else: <Code> else
 For: <Code> for
 While: <Code> while
 Await: <Code> await
-Task: <Code> task
+Agent: <Code> agent
+Trait: <Code> trait
 Skill: <Code> skill
 Fun: <Code> fun
+Default: <Code> default
 Type: <Code> type
 Return: <Code> return
 Succeed: <Code> succeed
