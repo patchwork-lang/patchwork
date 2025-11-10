@@ -3593,3 +3593,89 @@ mod debug_tests {
             _ => panic!("Expected var decl"),
         }
     }
+
+    #[test]
+    fn test_trait_with_super_trait() {
+        let input = r#"
+            export default trait Historian: Agent {
+                fun narrate(description: string) {
+                    var x = 1
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse trait with super-trait");
+
+        let trait_decl = match &program.items[0] {
+            Item::Trait(t) => t,
+            _ => panic!("Expected trait"),
+        };
+
+        assert_eq!(trait_decl.name, "Historian");
+        assert!(trait_decl.is_exported);
+        assert!(trait_decl.is_default);
+        assert!(trait_decl.super_trait.is_some());
+
+        match &trait_decl.super_trait {
+            Some(TypeExpr::Name(name)) => {
+                assert_eq!(*name, "Agent");
+            }
+            _ => panic!("Expected super-trait to be TypeExpr::Name(Agent)"),
+        }
+
+        assert_eq!(trait_decl.methods.len(), 1);
+        assert_eq!(trait_decl.methods[0].name, "narrate");
+    }
+
+    #[test]
+    fn test_trait_without_super_trait() {
+        let input = r#"
+            trait MyTrait {
+                fun foo() {
+                    var x = 1
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse trait without super-trait");
+
+        let trait_decl = match &program.items[0] {
+            Item::Trait(t) => t,
+            _ => panic!("Expected trait"),
+        };
+
+        assert_eq!(trait_decl.name, "MyTrait");
+        assert!(!trait_decl.is_exported);
+        assert!(!trait_decl.is_default);
+        assert!(trait_decl.super_trait.is_none());
+        assert_eq!(trait_decl.methods.len(), 1);
+    }
+
+    #[test]
+    fn test_trait_with_array_super_trait() {
+        let input = r#"
+            trait Handler: [Agent] {
+                fun handle() {
+                    var x = 1
+                }
+            }
+        "#;
+        let program = parse(input).expect("Should parse trait with array super-trait");
+
+        let trait_decl = match &program.items[0] {
+            Item::Trait(t) => t,
+            _ => panic!("Expected trait"),
+        };
+
+        assert_eq!(trait_decl.name, "Handler");
+        assert!(trait_decl.super_trait.is_some());
+
+        // Verify it's an array type
+        match &trait_decl.super_trait {
+            Some(TypeExpr::Array(inner)) => {
+                match &**inner {
+                    TypeExpr::Name(name) => assert_eq!(*name, "Agent"),
+                    _ => panic!("Expected array of Agent"),
+                }
+            }
+            _ => panic!("Expected super-trait to be TypeExpr::Array"),
+        }
+    }

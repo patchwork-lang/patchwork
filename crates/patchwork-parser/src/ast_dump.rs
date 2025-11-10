@@ -48,6 +48,10 @@ fn write_item(out: &mut String, item: &Item, indent: usize) -> std::fmt::Result 
             if decl.is_exported { modifiers.push_str("export "); }
             if decl.is_default { modifiers.push_str("default "); }
             writeln!(out, "{}{}Trait: {}", prefix, modifiers, decl.name)?;
+            if let Some(super_trait) = &decl.super_trait {
+                writeln!(out, "{}  SuperTrait:", prefix)?;
+                write_type_expr(out, super_trait, indent + 2)?;
+            }
             writeln!(out, "{}  Methods:", prefix)?;
             for method in &decl.methods {
                 write_function_decl(out, method, indent + 2)?;
@@ -95,7 +99,12 @@ fn write_params(out: &mut String, params: &[Param], indent: usize) -> std::fmt::
     } else {
         writeln!(out, "{}Params:", prefix)?;
         for param in params {
-            writeln!(out, "{}  - {}", prefix, param.name)?;
+            if let Some(type_ann) = &param.type_ann {
+                writeln!(out, "{}  - {}: ", prefix, param.name)?;
+                write_type_expr(out, type_ann, indent + 2)?;
+            } else {
+                writeln!(out, "{}  - {}", prefix, param.name)?;
+            }
         }
     }
     Ok(())

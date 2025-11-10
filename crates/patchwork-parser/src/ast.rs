@@ -55,10 +55,11 @@ pub struct AgentDecl<'input> {
     pub is_default: bool,
 }
 
-/// Trait declaration: `trait name { methods }`
+/// Trait declaration: `trait name { methods }` or `trait name: super_trait { methods }`
 #[derive(Debug, Clone, PartialEq)]
 pub struct TraitDecl<'input> {
     pub name: &'input str,
+    pub super_trait: Option<TypeExpr<'input>>,
     pub methods: Vec<FunctionDecl<'input>>,
     pub is_exported: bool,
     pub is_default: bool,
@@ -85,7 +86,7 @@ pub struct TypeDeclItem<'input> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Param<'input> {
     pub name: &'input str,
-    // Type annotations will be added in Milestone 8
+    pub type_ann: Option<TypeExpr<'input>>,
 }
 
 /// Block of statements: `{ stmt1; stmt2; ... }`

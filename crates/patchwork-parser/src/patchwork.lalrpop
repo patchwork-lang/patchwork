@@ -218,15 +218,27 @@ AgentDecl: AgentDecl<'input> = {
     },
 };
 
-// Trait declaration: trait name { methods }
+// Trait declaration: trait name { methods } or trait name: super_trait { methods }
 TraitDecl: TraitDecl<'input> = {
-    <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> "{" newline* <head:FunctionDecl> <tail:(newline+ <FunctionDecl>)*> newline* "}" => {
+    // Trait with super-trait and methods
+    <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> ":" <super_trait:TypeExpr> "{" newline* <head:TraitMethod> <tail:(newline+ <TraitMethod>)*> newline* "}" => {
         let mut methods = vec![head];
         methods.extend(tail);
-        TraitDecl { name, methods, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+        TraitDecl { name, super_trait: Some(super_trait), methods, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
     },
+    // Trait without super-trait but with methods
+    <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> "{" newline* <head:TraitMethod> <tail:(newline+ <TraitMethod>)*> newline* "}" => {
+        let mut methods = vec![head];
+        methods.extend(tail);
+        TraitDecl { name, super_trait: None, methods, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+    },
+    // Trait with super-trait and no methods
+    <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> ":" <super_trait:TypeExpr> "{" newline* "}" => {
+        TraitDecl { name, super_trait: Some(super_trait), methods: vec![], is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+    },
+    // Trait without super-trait and no methods
     <is_exported:"export"?> <is_default:"default"?> "trait" <name:identifier> "{" newline* "}" => {
-        TraitDecl { name, methods: vec![], is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+        TraitDecl { name, super_trait: None, methods: vec![], is_exported: is_exported.is_some(), is_default: is_default.is_some() }
     },
 };
 
@@ -235,6 +247,13 @@ FunctionDecl: FunctionDecl<'input> = {
     // Accept both "fun test (" and "fun test("
     <is_exported:"export"?> <is_default:"default"?> "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
         FunctionDecl { name, params, body, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+    },
+};
+
+// Trait method declaration (no export/default modifiers allowed inside traits)
+TraitMethod: FunctionDecl<'input> = {
+    "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        FunctionDecl { name, params, body, is_exported: false, is_default: false }
     },
 };
 
@@ -249,16 +268,19 @@ TypeDecl: TypeDeclItem<'input> = {
 ParamList: Vec<Param<'input>> = {
     // Empty list
     => vec![],
-    // Single param
-    <head:identifier> => vec![Param { name: head }],
-    // Multiple params
-    <head:identifier> <tail:("," <identifier>)+> => {
-        let mut params = vec![Param { name: head }];
-        for name in tail {
-            params.push(Param { name });
-        }
+    // Single param with optional type annotation
+    <head:Param> => vec![head],
+    // Multiple params with optional type annotations
+    <head:Param> <tail:("," <Param>)+> => {
+        let mut params = vec![head];
+        params.extend(tail);
         params
     },
+};
+
+// Single parameter: identifier with optional type annotation
+Param: Param<'input> = {
+    <name:identifier> <type_ann:(":" <TypeExpr>)?> => Param { name, type_ann },
 };
 
 // Block: { statements }
