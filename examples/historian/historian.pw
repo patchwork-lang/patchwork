@@ -1,0 +1,22 @@
+import ./analyst/analyst,
+    ./narrator/narrator,
+    ./scribe/scribe
+
+export trait Historian {
+    # Rewrites a git commit sequence for a changeset to create a clean branch with commits
+    # optimized for readability and review.
+    #
+    # @skill narrate
+    # @command narrate
+    fun narrate(description: string) {
+        var (_, result, _) = spawn(analyst(self), narrator(self), scribe(self)).await
+
+        var { original_branch, clean_branch, commits_created } = result
+
+        think {
+            The subagents successfully rewrote ${original_branch} to clean branch ${clean_branch}.
+            The commits created were ${commits_created}.
+            Report success with the branch names and commit count.
+        }
+    }
+}

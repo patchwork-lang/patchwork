@@ -9,7 +9,7 @@ import std.log
 #
 # @color orange
 export task narrator(session_id, work_dir) {
-    log(session_id, "NARRATOR", "Waiting for commit plan from analyst")
+    log("Waiting for commit plan from analyst")
 
     var {
         type: "commit_plan",
@@ -20,7 +20,7 @@ export task narrator(session_id, work_dir) {
         commits: [{num: number, description: string}]
     } = self.receive(10800000)
 
-    log(session_id, "NARRATOR", "Received commit plan: ${commits.length} commits")
+    log("Received commit plan: ${commits.length} commits")
 
     var i = 0;
 
@@ -33,7 +33,7 @@ export task narrator(session_id, work_dir) {
             }
         })
 
-        log(session_id, "NARRATOR", "Requested commit ${i}: Add user authentication models")
+        log("Requested commit ${i}: Add user authentication models")
 
         type scribe_result = {
             status: "success" | "error",
@@ -47,7 +47,7 @@ export task narrator(session_id, work_dir) {
         if status = "error" {
             var description = think { Scribe returned ${scribe_result}. Explain what went wrong }
             narrator.send({ status, error: description })
-            fail
+            throw "Scribe failed"
         }
         i++
     }
@@ -70,7 +70,7 @@ export task narrator(session_id, work_dir) {
 
     $ echo "done" > "${work_dir}/narrator/status"
 
-    log(session_id, "NARRATOR", "Complete! Created ${i} commits")
+    log("Complete! Created ${i} commits")
 }
 
 fun validate_trees(work_dir, branch, clean_branch) {
@@ -82,11 +82,11 @@ fun validate_trees(work_dir, branch, clean_branch) {
     var original_tree = $(git rev-parse HEAD^{tree})
 
     if clean_tree = original_tree {
-          log(session_id, "NARRATOR", "Validation successful - trees match")
+          log("Validation successful - trees match")
           return
     }
 
-    log(session_id, "NARRATOR", "Trees don't match, applying remaining changes")
+    log("Trees don't match, applying remaining changes")
     # Switch back to clean branch
     $ git checkout "${clean_branch}"
 
@@ -96,7 +96,7 @@ fun validate_trees(work_dir, branch, clean_branch) {
     # Log what we're adding (with details)
     var remaining_diff=$(cat "${work_dir}/remaining.diff")
 
-    log(session_id, "NARRATOR", "Remaining diff", remaining_diff)
+    log("Remaining diff", remaining_diff)
 
     # Apply the remaining changes
     $ git apply "${work_dir}/remaining.diff"
@@ -104,5 +104,5 @@ fun validate_trees(work_dir, branch, clean_branch) {
     # Amend the last commit with the missing changes
     $ git commit --amend --no-edit
 
-    log(session_id, "NARRATOR", "Amended last commit with remaining changes")
+    log("Amended last commit with remaining changes")
 }

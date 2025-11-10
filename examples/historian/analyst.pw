@@ -12,12 +12,12 @@ export task analyst(session_id, work_dir, changeset_description) {
     $ mkdir -p "${work_dir}/narrator"
     $ mkdir -p "${work_dir}/analyst"
 
-    log(session_id, "ANALYST", "Starting analysis")
+    log("Starting analysis")
 
     # Check for clean working tree
     if !($ git diff_index --quiet HEAD --) {
       $ echo "error" > "${work_dir}/analyst/status"
-      log(session_id, "ANALYST", "ERROR: Working tree not clean")
+      log("ERROR: Working tree not clean")
       fail
     }
 
@@ -26,7 +26,7 @@ export task analyst(session_id, work_dir, changeset_description) {
     # Check for detached HEAD
     if branch = "HEAD" {
         $ echo "error" > "${work_dir}/analyst/status"
-        log(session_id, "ANALYST", "ERROR: Detached HEAD")
+        log("ERROR: Detached HEAD")
         fail
     }
 
@@ -41,7 +41,7 @@ export task analyst(session_id, work_dir, changeset_description) {
     # Create clean branch
     $ git checkout -b "${clean_branch}" "${base_commit}"
 
-    log(session_id, "ANALYST", "Created clean branch: ${clean_branch}")
+    log("Created clean branch: ${clean_branch}")
 
     var build_command = think {
         Figure out how to run a lightweight build for this project (type checking, not tests):
@@ -111,7 +111,7 @@ export task analyst(session_id, work_dir, changeset_description) {
         $ git checkout "${branch}"
         $ git branch -D "${clean_branch}"
         $ echo "error" > "${work_dir}/analyst/status"
-        log(session_id, "ANALYST", "User cancelled")
+        log("User cancelled")
         fail
     }
 
@@ -124,14 +124,14 @@ export task analyst(session_id, work_dir, changeset_description) {
         commits: commit_plan  # Array of {num, description}
     })
 
-    log(session_id, "ANALYST", "Sent commit plan to narrator")
+    log("Sent commit plan to narrator")
 
     scribe.send(session_id, {
         type: "build_config",
         build_command # e.g., "cargo check" or null
     })
 
-    log(session_id, "ANALYST", "Sent build config to scribe")
+    log("Sent build config to scribe")
 
     cat({
         session_id,
@@ -146,5 +146,5 @@ export task analyst(session_id, work_dir, changeset_description) {
 
     $ echo "done" > "${work_dir}/analyst/status"
 
-    log(session_id, "ANALYST", "Analysis complete, exiting")
+    log("Analysis complete, exiting")
 }
