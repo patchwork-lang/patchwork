@@ -1,0 +1,52 @@
+# Phase 5 Demo: Message Passing Between Workers
+#
+# This demonstrates workers communicating via mailboxes.
+# The coordinator sends tasks to a worker and receives results.
+
+worker coordinator() {
+    var task = {
+        action: "analyze",
+        target: "src/main.rs"
+    }
+
+    self.session.mailbox.tasks.send(task)
+
+    var result = self.session.mailbox.results.receive(5000).await
+
+    think {
+        The analysis found: ${result.summary}
+    }
+
+    return result
+}
+
+worker analyzer() {
+    var task = self.session.mailbox.tasks.receive(10000).await
+
+    var output = $(cat ${task.target})
+
+    var analysis_result = {
+        file: task.target,
+        summary: "File contains Rust code",
+        lines: output
+    }
+
+    self.session.mailbox.results.send(analysis_result)
+
+    return analysis_result
+}
+
+worker multi_message_demo() {
+    var i = 0
+    while (i < 3) {
+        self.session.mailbox.events.send({
+            type: "progress",
+            step: i
+        })
+        i = i + 1
+    }
+
+    self.session.mailbox.events.send({
+        type: "complete"
+    })
+}

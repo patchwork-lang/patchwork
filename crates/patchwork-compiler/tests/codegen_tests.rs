@@ -632,3 +632,120 @@ worker example() {
     assert!(output.javascript.contains("import { shell, SessionContext, executePrompt }"),
             "Generated code should import executePrompt");
 }
+
+// ============================================================================
+// Phase 5: Message Passing Tests
+// ============================================================================
+
+#[test]
+fn test_mailbox_send() {
+    let source = r#"
+worker example() {
+    var msg = { type: "test" }
+    self.session.mailbox.results.send(msg)
+}
+"#;
+
+    let js = compile_source(source).expect("compilation failed");
+    assert!(js.contains("session.mailbox.results.send(msg)"));
+}
+
+#[test]
+fn test_mailbox_receive() {
+    let source = r#"
+worker example() {
+    var msg = self.session.mailbox.tasks.receive(5000).await
+}
+"#;
+
+    let js = compile_source(source).expect("compilation failed");
+    assert!(js.contains("await session.mailbox.tasks.receive(5000)"));
+}
+
+#[test]
+fn test_mailbox_multiple_names() {
+    let source = r#"
+worker example() {
+    self.session.mailbox.tasks.send({ id: 1 })
+    self.session.mailbox.results.send({ id: 2 })
+    self.session.mailbox.events.send({ id: 3 })
+}
+"#;
+
+    let js = compile_source(source).expect("compilation failed");
+    assert!(js.contains("session.mailbox.tasks.send"));
+    assert!(js.contains("session.mailbox.results.send"));
+    assert!(js.contains("session.mailbox.events.send"));
+}
+
+#[test]
+fn test_mailbox_in_loop() {
+    let source = r#"
+worker example() {
+    var i = 0
+    while (i < 3) {
+        self.session.mailbox.events.send({ step: i })
+        i = i + 1
+    }
+}
+"#;
+
+    let js = compile_source(source).expect("compilation failed");
+    assert!(js.contains("while (i < 3)"));
+    assert!(js.contains("session.mailbox.events.send({ step: i })"));
+}
+
+#[test]
+fn test_mailbox_send_receive_roundtrip() {
+    let source = r#"
+worker sender() {
+    var task = { action: "process" }
+    self.session.mailbox.tasks.send(task)
+    var result = self.session.mailbox.results.receive(5000).await
+    return result
+}
+"#;
+
+    let js = compile_source(source).expect("compilation failed");
+    assert!(js.contains("session.mailbox.tasks.send(task)"));
+    assert!(js.contains("await session.mailbox.results.receive(5000)"));
+}
+
+#[test]
+fn test_mailbox_receive_without_timeout() {
+    let source = r#"
+worker example() {
+    var msg = self.session.mailbox.inbox.receive().await
+}
+"#;
+
+    let js = compile_source(source).expect("compilation failed");
+    assert!(js.contains("await session.mailbox.inbox.receive()"));
+}
+
+#[test]
+fn test_runtime_has_mailbox_classes() {
+    let source = r#"
+worker example() {
+    self.session.mailbox.test.send({ x: 1 })
+}
+"#;
+
+    let temp_dir = std::env::temp_dir();
+    let test_file = temp_dir.join(format!("test_{}.pw", rand::random::<u32>()));
+    std::fs::write(&test_file, source).expect("failed to write test file");
+
+    let options = CompileOptions::new(&test_file);
+    let compiler = Compiler::new(options);
+    let output = compiler.compile().expect("compilation failed");
+
+    let _ = std::fs::remove_file(&test_file);
+
+    // Verify runtime includes Mailbox and Mailroom classes
+    assert!(output.runtime.contains("export class Mailbox"),
+            "Runtime should export Mailbox class");
+    assert!(output.runtime.contains("export class Mailroom"),
+            "Runtime should export Mailroom class");
+    assert!(output.runtime.contains("this.mailbox = new Mailroom()"),
+            "SessionContext should initialize mailroom");
+}

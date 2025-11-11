@@ -9,6 +9,100 @@ import { spawn } from 'child_process';
 import { promisify } from 'util';
 
 /**
+ * Mailbox for worker message passing (Phase 5)
+ *
+ * Provides FIFO message queue with blocking receive.
+ */
+export class Mailbox {
+  constructor(name) {
+    this.name = name;
+    this.queue = [];
+    this.waiters = [];
+  }
+
+  /**
+   * Send a message to this mailbox
+   *
+   * @param {any} message - The message to send (will be JSON serialized)
+   */
+  send(message) {
+    // Clone the message to ensure isolation between workers
+    const cloned = JSON.parse(JSON.stringify(message));
+
+    // If there's a waiter, resolve it immediately
+    if (this.waiters.length > 0) {
+      const waiter = this.waiters.shift();
+      clearTimeout(waiter.timeoutId);
+      waiter.resolve(cloned);
+    } else {
+      // Otherwise, queue the message
+      this.queue.push(cloned);
+    }
+  }
+
+  /**
+   * Receive a message from this mailbox
+   *
+   * Blocks until a message is available or timeout is reached.
+   *
+   * @param {number} timeout - Timeout in milliseconds (optional)
+   * @returns {Promise<any>} - The received message
+   * @throws {Error} - If timeout is reached before a message arrives
+   */
+  async receive(timeout) {
+    // If there's a queued message, return it immediately
+    if (this.queue.length > 0) {
+      return this.queue.shift();
+    }
+
+    // Otherwise, wait for a message
+    return new Promise((resolve, reject) => {
+      const waiter = { resolve, reject, timeoutId: null };
+
+      if (timeout !== undefined && timeout !== null) {
+        waiter.timeoutId = setTimeout(() => {
+          // Remove this waiter from the list
+          const index = this.waiters.indexOf(waiter);
+          if (index !== -1) {
+            this.waiters.splice(index, 1);
+          }
+          reject(new Error(`Mailbox receive timeout after ${timeout}ms`));
+        }, timeout);
+      }
+
+      this.waiters.push(waiter);
+    });
+  }
+}
+
+/**
+ * Mailroom manages all mailboxes for a session (Phase 5)
+ *
+ * Provides lazy mailbox creation via property access.
+ */
+export class Mailroom {
+  constructor() {
+    this.mailboxes = new Map();
+
+    // Return a proxy that creates mailboxes on-demand
+    return new Proxy(this, {
+      get(target, prop) {
+        // Allow access to internal methods/properties
+        if (prop === 'mailboxes' || typeof target[prop] === 'function') {
+          return target[prop];
+        }
+
+        // Lazy mailbox creation
+        if (!target.mailboxes.has(prop)) {
+          target.mailboxes.set(prop, new Mailbox(prop));
+        }
+        return target.mailboxes.get(prop);
+      }
+    });
+  }
+}
+
+/**
  * Session context available to all workers
  */
 export class SessionContext {
@@ -16,6 +110,8 @@ export class SessionContext {
     this.id = id;
     this.timestamp = timestamp;
     this.dir = dir;
+    // Phase 5: Add mailroom for message passing
+    this.mailbox = new Mailroom();
   }
 }
 

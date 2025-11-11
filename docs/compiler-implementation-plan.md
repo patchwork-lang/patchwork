@@ -109,19 +109,21 @@ worker example() {
 
 **Completion details**: See [phase4-completion-summary.md](phase4-completion-summary.md)
 
-## Phase 5: Message Passing Between Workers
+## Phase 5: Message Passing Between Workers ✅
 
 **Goal**: Enable workers to communicate via mailboxes.
 
 **Additions**:
-- [ ] Mailbox access via `self.session.mailbox.{name}`
-- [ ] `send()` and `receive()` method compilation
-- [ ] Message serialization/deserialization
-- [ ] Mailroom infrastructure in the runtime
+- [x] Mailbox access via `self.session.mailbox.{name}`
+- [x] `send()` and `receive()` method compilation
+- [x] Message serialization/deserialization
+- [x] Mailroom infrastructure in the runtime
 
-**Success criteria**: Multiple workers can send and receive messages in a compiled program.
+**Success criteria**: Multiple workers can send and receive messages in a compiled program. ✅
 
 **Deferred**: Advanced message patterns, type validation of messages.
+
+**Completion details**: See [phase5-completion-summary.md](phase5-completion-summary.md)
 
 ## Phase 6: Trait Definitions and Plugin Entry Points
 
