@@ -637,6 +637,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "patchwork-compiler"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "patchwork-lexer",
+ "patchwork-parser",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "patchwork-lexer"
 version = "0.1.0"
 dependencies = [

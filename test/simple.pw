@@ -1,0 +1,7 @@
+// Simple test file for Phase 1
+// This file should parse successfully
+
+worker example() {
+    var x = 5
+    var y = "hello"
+}
