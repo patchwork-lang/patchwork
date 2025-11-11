@@ -1,18 +1,26 @@
 {
-  "current_focus": "Patchwork compiler development - Phase 2 complete",
+  "current_focus": "Patchwork compiler - Phase 2 complete, all tests passing",
   "active_phase": "Phase 2: Simple Worker Codegen (Code Mode Only) ✅",
   "recent_accomplishments": [
-    "Built complete JavaScript code generator for Patchwork workers",
-    "Implemented all Phase 2 language features: variables, expressions, control flow, shell commands",
-    "Integrated codegen into compiler pipeline with full parsing",
-    "Created comprehensive test suite with 23 passing tests",
-    "Successfully compiled example worker from implementation plan"
+    "Completed Phase 2: JavaScript code generator for Patchwork workers",
+    "Created comprehensive test suite with 23 passing integration tests",
+    "Fixed VS Code extension workspace configuration for syntax highlighting",
+    "Fixed all broken lexer tests (outdated keyword references)",
+    "All 207 tests now passing across all crates"
   ],
   "key_files": {
     "codegen": "crates/patchwork-compiler/src/codegen.rs",
     "driver": "crates/patchwork-compiler/src/driver.rs",
     "tests": "crates/patchwork-compiler/tests/codegen_tests.rs",
+    "vscode_config": ".vscode/settings.json, .vscode/extensions.json",
     "plan": "docs/compiler-implementation-plan.md"
+  },
+  "test_status": {
+    "total": 207,
+    "compiler": 26,
+    "lexer": 57,
+    "parser": 124,
+    "all_passing": true
   },
   "next_steps": [
     "Phase 3: Session context and runtime primitives",
@@ -21,9 +29,14 @@
     "Build IPC protocol scaffolding"
   ],
   "important_patterns": {
-    "shell_commands": "Generate await $shell() calls for both statement and expression forms",
-    "string_interpolation": "Use JavaScript template literals for ${...} syntax",
-    "workers": "Export as functions for runtime to invoke",
-    "testing": "Integration tests compile .pw files to temp and verify JS output"
+    "testing_discipline": "ALWAYS run `cargo test --workspace` after code changes, especially lexer/parser/grammar modifications",
+    "test_immediately": "Run tests right after changes to catch breaking changes while context is fresh",
+    "commit_clean_state": "Only commit when all tests pass",
+    "phase_by_phase": "Complete one phase fully before moving to next"
+  },
+  "collaboration_insights": {
+    "working_style": "Direct, efficient, minimal preamble",
+    "preferences": "Methodical incremental progress, clean commits, comprehensive documentation",
+    "effective_patterns": "Socratic exploration, Sparkle checkpoints, clear phase boundaries"
   }
 }
