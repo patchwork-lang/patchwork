@@ -574,11 +574,11 @@ mod tests {
     }
 
     #[test]
-    fn test_task_keywords() -> Result<(), ParlexError> {
-        let tokens = collect_tokens("await task skill fun")?;
+    fn test_worker_keywords() -> Result<(), ParlexError> {
+        let tokens = collect_tokens("await worker skill fun")?;
         assert_eq!(tokens, vec![
             Rule::Await, Rule::Whitespace,
-            Rule::Task, Rule::Whitespace,
+            Rule::Worker, Rule::Whitespace,
             Rule::Skill, Rule::Whitespace,
             Rule::Fun,
             Rule::End
@@ -588,11 +588,11 @@ mod tests {
 
     #[test]
     fn test_control_flow_keywords() -> Result<(), ParlexError> {
-        let tokens = collect_tokens("return succeed fail break in")?;
+        let tokens = collect_tokens("return succeed throw break in")?;
         assert_eq!(tokens, vec![
             Rule::Return, Rule::Whitespace,
             Rule::Succeed, Rule::Whitespace,
-            Rule::Fail, Rule::Whitespace,
+            Rule::Throw, Rule::Whitespace,
             Rule::Break, Rule::Whitespace,
             Rule::In,
             Rule::End
@@ -1012,18 +1012,16 @@ var session_id = "historian-${timestamp}""#;
 
     #[test]
     fn test_historian_main_example() -> Result<(), ParlexError> {
-        let input = include_str!("../../../examples/historian/main.pw");
+        let input = include_str!("../../../examples/historian/historian.pw");
         let tokens = collect_tokens(input)?;
 
-        // Just verify it tokenizes without error
-        // Should contain various expected token types
+        // Just verify it tokenizes without error and contains key tokens
         assert!(tokens.contains(&Rule::Import));
-        assert!(tokens.contains(&Rule::Skill));
+        assert!(tokens.contains(&Rule::Trait));
         assert!(tokens.contains(&Rule::Var));
-        assert!(tokens.contains(&Rule::Dollar));  // Changed from BashSubst
-        assert!(tokens.contains(&Rule::StringStart));
         assert!(tokens.contains(&Rule::Await));
-        assert!(tokens.contains(&Rule::Task));
+        assert!(tokens.contains(&Rule::Fun));
+        assert!(tokens.contains(&Rule::Think));
         assert!(tokens.contains(&Rule::End));
 
         Ok(())
@@ -1036,7 +1034,7 @@ var session_id = "historian-${timestamp}""#;
 
         // Should tokenize without error
         assert!(tokens.contains(&Rule::Import));
-        assert!(tokens.contains(&Rule::Task));
+        assert!(tokens.contains(&Rule::Worker));
         assert!(tokens.contains(&Rule::Think));
         assert!(tokens.contains(&Rule::Ask));
         assert!(tokens.contains(&Rule::End));
@@ -1051,7 +1049,7 @@ var session_id = "historian-${timestamp}""#;
 
         // Should tokenize without error
         assert!(tokens.contains(&Rule::Import));
-        assert!(tokens.contains(&Rule::Task));
+        assert!(tokens.contains(&Rule::Worker));
         assert!(tokens.contains(&Rule::Fun));
         assert!(tokens.contains(&Rule::Think));
         assert!(tokens.contains(&Rule::End));
@@ -1066,7 +1064,7 @@ var session_id = "historian-${timestamp}""#;
 
         // Should tokenize without error
         assert!(tokens.contains(&Rule::Import));
-        assert!(tokens.contains(&Rule::Task));
+        assert!(tokens.contains(&Rule::Worker));
         assert!(tokens.contains(&Rule::Think));
         assert!(tokens.contains(&Rule::Do));
         assert!(tokens.contains(&Rule::End));
