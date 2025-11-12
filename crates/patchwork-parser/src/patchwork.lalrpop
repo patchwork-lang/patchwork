@@ -246,15 +246,32 @@ TraitDecl: TraitDecl<'input> = {
 FunctionDecl: FunctionDecl<'input> = {
     // Accept both "fun test (" and "fun test("
     <is_exported:"export"?> <is_default:"default"?> "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        FunctionDecl { name, params, body, is_exported: is_exported.is_some(), is_default: is_default.is_some() }
+        FunctionDecl { name, params, body, annotations: vec![], is_exported: is_exported.is_some(), is_default: is_default.is_some() }
     },
 };
 
 // Trait method declaration (no export/default modifiers allowed inside traits)
 TraitMethod: FunctionDecl<'input> = {
-    "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
-        FunctionDecl { name, params, body, is_exported: false, is_default: false }
+    <annotations:Annotation*> "fun" <name:identifier> "("? <params:ParamList> ")" <body:Block> => {
+        FunctionDecl { name, params, body, annotations, is_exported: false, is_default: false }
     },
+};
+
+// Annotation: @name or @name arg
+// Allow keywords as annotation names (e.g., @skill, @command)
+Annotation: Annotation<'input> = {
+    "@" <name:AnnotationName> newline* => {
+        Annotation { name, arg: None }
+    },
+    "@" <name:AnnotationName> <arg:identifier> newline* => {
+        Annotation { name, arg: Some(arg) }
+    },
+};
+
+// Annotation name can be an identifier or the skill keyword
+AnnotationName: &'input str = {
+    <identifier> => <>,
+    "skill" => "skill",
 };
 
 // Type declaration: type name = TypeExpr

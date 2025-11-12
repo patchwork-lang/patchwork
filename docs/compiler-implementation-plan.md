@@ -125,18 +125,21 @@ worker example() {
 
 **Completion details**: See [phase5-completion-summary.md](phase5-completion-summary.md)
 
-## Phase 6: Trait Definitions and Plugin Entry Points
+## Phase 6: Trait Definitions and Plugin Entry Points ✅
 
 **Goal**: Support the plugin model with traits and annotation-driven entry point generation.
 
 **Additions**:
-- [ ] Trait declarations with `Agent` inheritance
-- [ ] Method definitions in traits
-- [ ] `@skill` and `@command` annotation parsing
-- [ ] `self.delegate()` compilation
-- [ ] Plugin manifest generation (for Claude Code)
+- [x] Trait declarations with `Agent` inheritance
+- [x] Method definitions in traits
+- [x] `@skill` and `@command` annotation parsing
+- [x] `self.delegate()` compilation
+- [x] Array and object destructuring support
+- [ ] Plugin manifest generation (for Claude Code) - **Deferred to Phase 6.5**
 
-**Success criteria**: A complete plugin (trait + workers) compiles to a valid Claude Code plugin structure with skill/command entry points.
+**Success criteria**: A complete plugin (trait + workers) compiles to a valid Claude Code plugin structure with skill/command entry points. ✅ (Core compilation working; manifest generation deferred)
+
+**Completion details**: See [phase6-completion-summary.md](phase6-completion-summary.md)
 
 **Example input**:
 ```patchwork

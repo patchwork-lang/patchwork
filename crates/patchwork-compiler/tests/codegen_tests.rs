@@ -371,8 +371,8 @@ worker example() {
 
     let js = compile_source(source).expect("compilation failed");
 
-    // Check runtime imports are included (includes executePrompt)
-    assert!(js.contains("import { shell, SessionContext, executePrompt } from './patchwork-runtime.js'"));
+    // Check runtime imports are included (includes executePrompt and delegate)
+    assert!(js.contains("import { shell, SessionContext, executePrompt, delegate } from './patchwork-runtime.js'"));
 
     // Check worker receives session parameter
     assert!(js.contains("export function example(session)"));
@@ -629,8 +629,8 @@ worker example() {
     // Verify runtime includes executePrompt function
     assert!(output.runtime.contains("export async function executePrompt"),
             "Runtime should export executePrompt function");
-    assert!(output.javascript.contains("import { shell, SessionContext, executePrompt }"),
-            "Generated code should import executePrompt");
+    assert!(output.javascript.contains("import { shell, SessionContext, executePrompt, delegate }"),
+            "Generated code should import executePrompt and delegate");
 }
 
 // ============================================================================

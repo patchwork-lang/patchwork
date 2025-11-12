@@ -3,9 +3,8 @@ import ./{analyst, narrator, scribe}
 export default trait Historian: Agent {
     # Rewrites a git commit sequence for a changeset to create a clean branch with commits
     # optimized for readability and review.
-    #
-    # @skill narrate
-    # @command narrate
+    @skill narrate
+    @command narrate
     fun narrate(description: string) {
         var [_, result, _] = self.delegate([
             analyst(description),

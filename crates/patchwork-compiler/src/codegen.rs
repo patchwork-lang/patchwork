@@ -57,8 +57,9 @@ impl CodeGenerator {
                 Item::Skill(_) => {
                     // TODO: Skill support not yet implemented
                 }
-                Item::Trait(_) => {
-                    // TODO: Trait support not yet implemented
+                Item::Trait(trait_decl) => {
+                    self.generate_trait(trait_decl)?;
+                    self.output.push('\n');
                 }
                 Item::Type(_) => {
                     // TODO: Type declaration support not yet implemented
@@ -74,7 +75,7 @@ impl CodeGenerator {
         // Import runtime primitives from the bundled runtime file
         let runtime_path = crate::runtime::get_runtime_module_name();
         self.output.push_str("// Patchwork runtime imports\n");
-        write!(self.output, "import {{ shell, SessionContext, executePrompt }} from '{}';\n\n", runtime_path).unwrap();
+        write!(self.output, "import {{ shell, SessionContext, executePrompt, delegate }} from '{}';\n\n", runtime_path).unwrap();
     }
 
     /// Generate code for a worker declaration
@@ -138,6 +139,40 @@ impl CodeGenerator {
             // Type annotations are ignored in generated code
         }
         self.output.push(')');
+        Ok(())
+    }
+
+    /// Generate code for a trait declaration
+    fn generate_trait(&mut self, trait_decl: &TraitDecl) -> Result<()> {
+        // Traits compile to their methods as exported functions
+        // Trait methods receive a session parameter (like workers) to support self.delegate() and self.session
+        // Annotations (@skill, @command) are extracted and used for plugin manifest generation
+
+        let export_prefix = if trait_decl.is_exported { "export " } else { "" };
+
+        for method in &trait_decl.methods {
+            // Generate comment showing this came from a trait
+            write!(self.output, "// Method from trait {}\n", trait_decl.name)?;
+
+            // Generate the function (exported if trait is exported)
+            // Trait methods receive session as first parameter (like workers)
+            write!(self.output, "{}function {}", export_prefix, method.name)?;
+            self.output.push('(');
+            self.output.push_str("session");
+            for param in &method.params {
+                self.output.push_str(", ");
+                self.output.push_str(param.name);
+            }
+            self.output.push(')');
+            self.output.push_str(" {\n");
+
+            self.indent += 1;
+            self.generate_block(&method.body)?;
+            self.indent -= 1;
+
+            self.output.push_str("}\n\n");
+        }
+
         Ok(())
     }
 
@@ -211,13 +246,67 @@ impl CodeGenerator {
                     self.output.push(';');
                 }
             }
-            Pattern::Object(_fields) => {
-                // TODO: Object destructuring not yet implemented
-                return Err(CompileError::Unsupported("Object destructuring not yet supported".into()));
+            Pattern::Object(fields) => {
+                // Object destructuring: var {x, y} = expr
+                self.output.push_str("let {");
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    // For now, only support simple field patterns
+                    match &field.pattern {
+                        Pattern::Identifier { name, .. } => {
+                            if field.key != *name {
+                                // Key doesn't match name: {key: name}
+                                write!(self.output, "{}: {}", field.key, name)?;
+                            } else {
+                                // Key matches name: shorthand {key}
+                                self.output.push_str(field.key);
+                            }
+                        }
+                        _ => {
+                            return Err(CompileError::Unsupported(
+                                "Nested patterns in object destructuring not yet supported".into()
+                            ));
+                        }
+                    }
+                }
+                self.output.push('}');
+                if let Some(expr) = init {
+                    self.output.push_str(" = ");
+                    self.generate_expr(expr)?;
+                }
+                self.output.push(';');
             }
-            Pattern::Array(_items) => {
-                // TODO: Array destructuring not yet implemented
-                return Err(CompileError::Unsupported("Array destructuring not yet supported".into()));
+            Pattern::Array(items) => {
+                // Array destructuring: var [x, y, z] = expr
+                // Support ignore patterns: var [_, x, _] = expr
+                self.output.push_str("let [");
+                for (i, item) in items.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    match item {
+                        Pattern::Identifier { name, .. } => {
+                            self.output.push_str(name);
+                        }
+                        Pattern::Ignore => {
+                            // Empty slot in JavaScript destructuring
+                            // [, x, ] is valid JS for ignoring positions
+                        }
+                        _ => {
+                            return Err(CompileError::Unsupported(
+                                "Nested patterns in array destructuring not yet supported".into()
+                            ));
+                        }
+                    }
+                }
+                self.output.push(']');
+                if let Some(expr) = init {
+                    self.output.push_str(" = ");
+                    self.generate_expr(expr)?;
+                }
+                self.output.push(';');
             }
         }
         Ok(())
@@ -336,6 +425,25 @@ impl CodeGenerator {
                 self.generate_unary_op(op, operand)?;
             }
             Expr::Call { callee, args } => {
+                // Check if this is a self.delegate(...) call
+                if let Expr::Member { object, field } = &**callee {
+                    if let Expr::Identifier("self") = &**object {
+                        if *field == "delegate" {
+                            // self.delegate([...]) -> delegate(session, [...])
+                            self.output.push_str("delegate(session, ");
+                            for (i, arg) in args.iter().enumerate() {
+                                if i > 0 {
+                                    self.output.push_str(", ");
+                                }
+                                self.generate_expr(arg)?;
+                            }
+                            self.output.push(')');
+                            return Ok(());
+                        }
+                    }
+                }
+
+                // Regular function call
                 self.generate_expr(callee)?;
                 self.output.push('(');
                 for (i, arg) in args.iter().enumerate() {
@@ -347,16 +455,21 @@ impl CodeGenerator {
                 self.output.push(')');
             }
             Expr::Member { object, field } => {
-                // Transform self.session -> session
+                // Handle self.field access
                 if let Expr::Identifier("self") = **object {
                     if *field == "session" {
                         // self.session -> session
                         self.output.push_str("session");
                         return Ok(());
+                    } else if *field == "delegate" {
+                        // self.delegate is used in method calls, handled in Expr::Call
+                        // But if accessed directly, just output "delegate"
+                        self.output.push_str("delegate");
+                        return Ok(());
                     } else {
                         // self.something_else -> error (not supported)
                         return Err(CompileError::Codegen(
-                            format!("self.{} is not supported. Only self.session is available", field)
+                            format!("self.{} is not supported. Only self.session and self.delegate() are available", field)
                         ));
                     }
                 }

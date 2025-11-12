@@ -71,8 +71,16 @@ pub struct FunctionDecl<'input> {
     pub name: &'input str,
     pub params: Vec<Param<'input>>,
     pub body: Block<'input>,
+    pub annotations: Vec<Annotation<'input>>,
     pub is_exported: bool,
     pub is_default: bool,
+}
+
+/// Annotation: `@skill` or `@command`
+#[derive(Debug, Clone, PartialEq)]
+pub struct Annotation<'input> {
+    pub name: &'input str,
+    pub arg: Option<&'input str>,
 }
 
 /// Type declaration: `type name = TypeExpr`
