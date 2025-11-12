@@ -62,9 +62,9 @@ pub fn extract_prompt_template(
                 markdown.push('}');
             }
             PromptItem::Code(_block) => {
-                // Phase 4: Embedded code in prompts not yet supported
+                // Embedded code in prompts not yet supported
                 return Err(CompileError::Unsupported(
-                    "Embedded code blocks (do { }) in prompts not yet supported in Phase 4".into()
+                    "Embedded code blocks (do { }) in prompts not yet supported ".into()
                 ));
             }
         }
@@ -131,10 +131,10 @@ fn extract_variable_refs(expr: &Expr, refs: &mut HashSet<String>) -> Result<()> 
         // Literals don't contain variable references
         Expr::Number(_) | Expr::True | Expr::False => {}
 
-        // Phase 4: Don't support complex expressions in prompts yet
+        // Don't support complex expressions in prompts yet
         Expr::Await(_) | Expr::PostIncrement(_) | Expr::PostDecrement(_) => {
             return Err(CompileError::Unsupported(
-                "Complex expressions in prompt interpolations not yet supported in Phase 4".into()
+                "Complex expressions in prompt interpolations not yet supported ".into()
             ));
         }
 

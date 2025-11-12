@@ -9,7 +9,7 @@ import { spawn } from 'child_process';
 import { promisify } from 'util';
 
 /**
- * Mailbox for worker message passing (Phase 5)
+ * Mailbox for worker message passing
  *
  * Provides FIFO message queue with blocking receive.
  */
@@ -76,7 +76,7 @@ export class Mailbox {
 }
 
 /**
- * Mailroom manages all mailboxes for a session (Phase 5)
+ * Mailroom manages all mailboxes for a session
  *
  * Provides lazy mailbox creation via property access.
  */
@@ -110,7 +110,7 @@ export class SessionContext {
     this.id = id;
     this.timestamp = timestamp;
     this.dir = dir;
-    // Phase 5: Add mailroom for message passing
+    // Mailroom for worker message passing
     this.mailbox = new Mailroom();
   }
 }
@@ -184,7 +184,7 @@ export async function shell(command, options = {}) {
 
 /**
  * IPC Message types for prompt execution
- * (Phase 3: scaffolding only, full implementation in Phase 11)
+ * (Mock implementation - full IPC transport to be implemented later)
  */
 export class IpcMessage {
   constructor(type, data) {
@@ -220,8 +220,8 @@ export class AskResponse extends IpcMessage {
 /**
  * Execute a prompt block (think or ask)
  *
- * Phase 4: Sends IPC request with template ID and variable bindings.
- * Phase 11: Full IPC implementation with actual agent communication.
+ * Sends IPC request with template ID and variable bindings.
+ * Currently a mock implementation - full IPC transport to be implemented.
  *
  * @param {SessionContext} session - The session context
  * @param {string} templateId - The prompt template ID (e.g., 'think_0')
@@ -229,15 +229,13 @@ export class AskResponse extends IpcMessage {
  * @returns {Promise<any>} - The result from the agent (structure depends on prompt type)
  */
 export async function executePrompt(session, templateId, bindings) {
-  // Phase 4: Mock implementation that just returns a placeholder
-  // Phase 11 will implement the full IPC transport
+  // TODO: Implement full IPC transport for agent communication
 
   console.log(`[Patchwork Runtime] executePrompt: ${templateId}`);
   console.log(`[Patchwork Runtime] Session: ${session.id}`);
   console.log(`[Patchwork Runtime] Bindings:`, bindings);
 
-  // Return a mock response for now
-  // In Phase 11, this will send an IPC message and await the response
+  // Mock response placeholder
   return {
     success: true,
     message: `Mock response for ${templateId}`,

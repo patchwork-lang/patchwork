@@ -1,6 +1,6 @@
-# Phase 3 Demonstration: Session Context
+# Session Context Demo
 #
-# This example demonstrates the new Phase 3 features:
+# This example demonstrates session context features:
 # 1. Runtime imports
 # 2. Session context access via self.session
 # 3. Workers receiving session as a parameter

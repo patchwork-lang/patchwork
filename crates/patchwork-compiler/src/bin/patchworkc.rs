@@ -45,11 +45,11 @@ fn main() {
     match compiler.compile() {
         Ok(output) => {
             if args.dump_ast {
-                // For Phase 2, we skip AST dump (no easy way to re-parse)
+                // we skip AST dump (no easy way to re-parse)
                 // In future we could store the AST in the output
-                eprintln!("AST dump not available in Phase 2");
+                eprintln!("AST dump not available ");
             } else {
-                // Phase 4: Write generated code, runtime, and prompts to stdout
+                // Write generated code, runtime, and prompts to stdout
                 // In the future, with --output flag, we'll write to files
                 if args.verbose {
                     println!("Compilation successful!");

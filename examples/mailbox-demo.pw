@@ -1,4 +1,4 @@
-# Phase 5 Demo: Message Passing Between Workers
+# Mailbox Demo: Message Passing Between Workers
 #
 # This demonstrates workers communicating via mailboxes.
 # The coordinator sends tasks to a worker and receives results.

@@ -30,7 +30,7 @@ worker example() {
 "#;
 
     let js = compile_source(source).expect("compilation failed");
-    // Phase 3: Workers now receive session as first parameter
+    // Workers now receive session as first parameter
     assert!(js.contains("export function example(session)"));
     assert!(js.contains("let x = 5"));
     assert!(js.contains("return x"));
@@ -46,7 +46,7 @@ worker process(a, b) {
 "#;
 
     let js = compile_source(source).expect("compilation failed");
-    // Phase 3: Workers now receive session as first parameter
+    // Workers now receive session as first parameter
     assert!(js.contains("export function process(session, a, b)"));
     assert!(js.contains("let sum = a + b"));
 }
@@ -348,7 +348,7 @@ worker example() {
     let js = compile_source(source).expect("compilation failed");
 
     // Verify all expected components
-    // Phase 3: Workers now receive session as first parameter
+    // Workers now receive session as first parameter
     assert!(js.contains("export function example(session)"));
     assert!(js.contains("let x = 5"));
     assert!(js.contains("await $shell(`echo hello`, {capture: true})"));
@@ -356,7 +356,7 @@ worker example() {
     assert!(js.contains("await $shell(`echo x is big`)"));
 }
 
-// ====== Phase 3: Session Context Tests ======
+// ====== Session Context Tests ======
 
 #[test]
 fn test_session_context_access() {
@@ -371,7 +371,7 @@ worker example() {
 
     let js = compile_source(source).expect("compilation failed");
 
-    // Check runtime imports are included (Phase 4: includes executePrompt)
+    // Check runtime imports are included (includes executePrompt)
     assert!(js.contains("import { shell, SessionContext, executePrompt } from './patchwork-runtime.js'"));
 
     // Check worker receives session parameter
@@ -422,7 +422,7 @@ worker example() {
 "#;
 
     let result = compile_source(source);
-    assert!(result.is_err(), "Expected error for self.mailbox in Phase 3");
+    assert!(result.is_err(), "Expected error for self.mailbox");
     let err = result.unwrap_err();
     assert!(err.contains("self.mailbox is not supported") || err.contains("Only self.session"),
             "Error message should mention unsupported field, got: {}", err);
@@ -457,7 +457,7 @@ worker example() {
 }
 
 // ========================================
-// Phase 4: Prompt Block Compilation Tests
+// Prompt Block Compilation Tests
 // ========================================
 
 /// Helper to compile and return both JS and prompts
@@ -634,7 +634,7 @@ worker example() {
 }
 
 // ============================================================================
-// Phase 5: Message Passing Tests
+// Message Passing Tests
 // ============================================================================
 
 #[test]

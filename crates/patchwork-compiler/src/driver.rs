@@ -15,9 +15,9 @@ pub struct CompileOutput {
     pub source: String,
     /// Generated JavaScript code
     pub javascript: String,
-    /// Runtime JavaScript code (Phase 3)
+    /// Runtime JavaScript code 
     pub runtime: String,
-    /// Prompt templates extracted during compilation (Phase 4)
+    /// Prompt templates extracted during compilation 
     /// Map from template ID to markdown content
     pub prompts: HashMap<String, String>,
 }
@@ -70,17 +70,17 @@ impl Compiler {
             eprintln!("Compiling: {}", self.options.input.display());
         }
 
-        // Phase 1: Read source file
+        // Read source file
         let source = self.read_source()?;
 
-        // Phase 2: Parse source into AST
+        // Parse source into AST
         let ast = self.parse(&source)?;
 
         if self.options.verbose {
             eprintln!("Parse successful: {} items", ast.items.len());
         }
 
-        // Phase 2: Generate JavaScript code
+        // Generate JavaScript code
         let (javascript, prompt_templates) = self.generate_code(&ast)?;
 
         if self.options.verbose {
@@ -88,10 +88,10 @@ impl Compiler {
             eprintln!("Extracted {} prompt templates", prompt_templates.len());
         }
 
-        // Phase 3: Include runtime code
+        // Include runtime code
         let runtime = crate::runtime::get_runtime_code().to_string();
 
-        // Phase 4: Convert prompt templates to markdown map
+        // Convert prompt templates to markdown map
         let prompts = prompt_templates.into_iter()
             .map(|t| (t.id.clone(), t.markdown.clone()))
             .collect();

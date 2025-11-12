@@ -1,7 +1,6 @@
 /// Code generation module
 ///
 /// Transforms Patchwork AST into executable JavaScript.
-/// Phase 2 focuses on simple worker codegen with only code mode features.
 
 use patchwork_parser::ast::*;
 use crate::error::{CompileError, Result};
@@ -38,10 +37,10 @@ impl CodeGenerator {
 
     /// Generate JavaScript code for a program
     pub fn generate(&mut self, program: &Program) -> Result<String> {
-        // Phase 3: Add runtime imports
+        // Add runtime imports
         self.generate_runtime_imports();
 
-        // For Phase 2, we only support workers (no traits, skills, imports yet)
+        // Generate code for top-level items
         for item in &program.items {
             match item {
                 Item::Worker(worker) => {
@@ -53,16 +52,16 @@ impl CodeGenerator {
                     self.output.push('\n');
                 }
                 Item::Import(_) => {
-                    // Phase 2: Skip imports (Phase 7)
+                    // TODO: Import support not yet implemented
                 }
                 Item::Skill(_) => {
-                    // Phase 2: Skip skills (Phase 6)
+                    // TODO: Skill support not yet implemented
                 }
                 Item::Trait(_) => {
-                    // Phase 2: Skip traits (Phase 6)
+                    // TODO: Trait support not yet implemented
                 }
                 Item::Type(_) => {
-                    // Phase 2: Skip type declarations (Phase 8)
+                    // TODO: Type declaration support not yet implemented
                 }
             }
         }
@@ -70,7 +69,7 @@ impl CodeGenerator {
         Ok(std::mem::take(&mut self.output))
     }
 
-    /// Generate runtime imports (Phase 3)
+    /// Generate runtime imports
     fn generate_runtime_imports(&mut self) {
         // Import runtime primitives from the bundled runtime file
         let runtime_path = crate::runtime::get_runtime_module_name();
@@ -82,7 +81,7 @@ impl CodeGenerator {
     fn generate_worker(&mut self, worker: &WorkerDecl) -> Result<()> {
         // Generate: export function workerName(session, params) { ... }
         // Note: Workers become exported functions for the runtime to invoke
-        // Phase 3: Workers receive a session parameter as the first argument
+        // Workers receive a session parameter as the first argument
 
         write!(self.output, "export function {}", worker.name)?;
         self.generate_worker_params(&worker.params)?;
@@ -99,13 +98,13 @@ impl CodeGenerator {
     /// Generate parameter list for workers (includes session parameter)
     fn generate_worker_params(&mut self, params: &[Param]) -> Result<()> {
         self.output.push('(');
-        // Phase 3: Workers always receive session as first parameter
+        // Workers always receive session as first parameter
         self.output.push_str("session");
         // Add user-defined parameters
         for param in params {
             self.output.push_str(", ");
             self.output.push_str(param.name);
-            // Phase 2: Ignore type annotations
+            // Type annotations are ignored in generated code
         }
         self.output.push(')');
         Ok(())
@@ -136,7 +135,7 @@ impl CodeGenerator {
                 self.output.push_str(", ");
             }
             self.output.push_str(param.name);
-            // Phase 2: Ignore type annotations
+            // Type annotations are ignored in generated code
         }
         self.output.push(')');
         Ok(())
@@ -183,11 +182,11 @@ impl CodeGenerator {
                 self.output.push_str("break;");
             }
             Statement::Succeed => {
-                // Phase 2: Skip succeed (task-specific, Phase 6)
+                // TODO: Succeed statement not yet implemented
                 self.output.push_str("// succeed statement (not yet implemented)");
             }
             Statement::TypeDecl { .. } => {
-                // Phase 2: Skip type declarations (Phase 8)
+                // Type declarations are ignored in code generation
             }
         }
         Ok(())
@@ -213,12 +212,12 @@ impl CodeGenerator {
                 }
             }
             Pattern::Object(_fields) => {
-                // Phase 2: Skip destructuring (Milestone 7)
-                return Err(CompileError::Unsupported("Object destructuring not yet supported in Phase 2".into()));
+                // TODO: Object destructuring not yet implemented
+                return Err(CompileError::Unsupported("Object destructuring not yet supported".into()));
             }
             Pattern::Array(_items) => {
-                // Phase 2: Skip destructuring (Milestone 7)
-                return Err(CompileError::Unsupported("Array destructuring not yet supported in Phase 2".into()));
+                // TODO: Array destructuring not yet implemented
+                return Err(CompileError::Unsupported("Array destructuring not yet supported".into()));
             }
         }
         Ok(())
@@ -285,7 +284,7 @@ impl CodeGenerator {
     fn generate_expr(&mut self, expr: &Expr) -> Result<()> {
         match expr {
             Expr::Identifier(name) => {
-                // Phase 3: Bare 'self' is not supported (only self.session)
+                // Bare 'self' is not supported (only self.session)
                 if *name == "self" {
                     return Err(CompileError::Codegen(
                         "Bare 'self' is not supported. Use self.session to access the session context".to_string()
@@ -348,16 +347,16 @@ impl CodeGenerator {
                 self.output.push(')');
             }
             Expr::Member { object, field } => {
-                // Phase 3: Transform self.session -> session
+                // Transform self.session -> session
                 if let Expr::Identifier("self") = **object {
                     if *field == "session" {
                         // self.session -> session
                         self.output.push_str("session");
                         return Ok(());
                     } else {
-                        // self.something_else -> error (not supported in Phase 3)
+                        // self.something_else -> error (not supported)
                         return Err(CompileError::Codegen(
-                            format!("self.{} is not supported. Only self.session is available in Phase 3", field)
+                            format!("self.{} is not supported. Only self.session is available", field)
                         ));
                     }
                 }
@@ -416,8 +415,8 @@ impl CodeGenerator {
                 self.generate_prompt_expr(block, PromptKind::Ask)?;
             }
             Expr::Do(_) => {
-                // Phase 2: Skip do expressions
-                return Err(CompileError::Unsupported("Do expressions not yet supported in Phase 2".into()));
+                // TODO: Do expressions not yet implemented
+                return Err(CompileError::Unsupported("Do expressions not yet supported".into()));
             }
         }
         Ok(())
@@ -499,8 +498,7 @@ impl CodeGenerator {
 
     /// Generate shell command execution (statement form)
     fn generate_shell_command(&mut self, name: &str, args: &[CommandArg]) -> Result<()> {
-        // For now, generate a runtime function call
-        // TODO: Import runtime library in Phase 3
+        // Generate a runtime function call
         self.output.push_str("await $shell(");
 
         // Build command string
