@@ -1,0 +1,4 @@
+export default worker helper(message: string) {
+    var result = "Helper: " + message
+    return result
+}

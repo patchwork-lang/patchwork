@@ -20,6 +20,8 @@ pub struct CodeGenerator {
     prompt_counter: usize,
     /// Plugin manifest (if trait with annotations is compiled)
     manifest: Option<PluginManifest>,
+    /// Module ID for this compilation unit (used for generating relative imports)
+    module_id: Option<String>,
 }
 
 impl CodeGenerator {
@@ -31,7 +33,13 @@ impl CodeGenerator {
             prompts: Vec::new(),
             prompt_counter: 0,
             manifest: None,
+            module_id: None,
         }
+    }
+
+    /// Set the module ID for this compilation unit
+    pub fn set_module_id(&mut self, module_id: impl Into<String>) {
+        self.module_id = Some(module_id.into());
     }
 
     /// Get the extracted prompt templates
@@ -46,10 +54,22 @@ impl CodeGenerator {
 
     /// Generate JavaScript code for a program
     pub fn generate(&mut self, program: &Program) -> Result<String> {
+        // First pass: generate user imports
+        let mut has_imports = false;
+        for item in &program.items {
+            if let Item::Import(import_decl) = item {
+                self.generate_import(import_decl)?;
+                has_imports = true;
+            }
+        }
+        if has_imports {
+            self.output.push('\n');
+        }
+
         // Add runtime imports
         self.generate_runtime_imports();
 
-        // Generate code for top-level items
+        // Second pass: generate code for other top-level items
         for item in &program.items {
             match item {
                 Item::Worker(worker) => {
@@ -61,7 +81,7 @@ impl CodeGenerator {
                     self.output.push('\n');
                 }
                 Item::Import(_) => {
-                    // TODO: Import support not yet implemented
+                    // Already handled in first pass
                 }
                 Item::Skill(_) => {
                     // TODO: Skill support not yet implemented
@@ -87,13 +107,60 @@ impl CodeGenerator {
         write!(self.output, "import {{ shell, SessionContext, executePrompt, delegate }} from '{}';\n\n", runtime_path).unwrap();
     }
 
+    /// Generate import statement
+    fn generate_import(&mut self, import: &ImportDecl) -> Result<()> {
+        match &import.path {
+            ImportPath::Simple(segments) => {
+                // Check if this is a standard library import
+                if segments.first() == Some(&"std") {
+                    // Standard library: import std.log -> import { log } from 'patchwork-runtime'
+                    if segments.len() == 2 {
+                        let name = segments[1];
+                        write!(self.output, "import {{ {} }} from 'patchwork-runtime';\n", name)?;
+                    }
+                } else {
+                    // Relative import: import ./module -> import * as module from './module.js'
+                    let module_name = segments.last().unwrap_or(&"module");
+                    let path = self.segments_to_path(segments);
+                    write!(self.output, "import * as {} from '{}.js';\n", module_name, path)?;
+                }
+            }
+            ImportPath::RelativeMulti(names) => {
+                // Multi-import: import ./{a, b, c} -> multiple imports
+                for name in names {
+                    write!(self.output, "import * as {} from './{}.js';\n", name, name)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Convert path segments to a relative path string
+    fn segments_to_path(&self, segments: &[&str]) -> String {
+        let mut path = String::new();
+        for (i, segment) in segments.iter().enumerate() {
+            if i > 0 {
+                path.push('/');
+            }
+            path.push_str(segment);
+        }
+        path
+    }
+
     /// Generate code for a worker declaration
     fn generate_worker(&mut self, worker: &WorkerDecl) -> Result<()> {
         // Generate: export function workerName(session, params) { ... }
-        // Note: Workers become exported functions for the runtime to invoke
+        // or: export default function workerName(session, params) { ... }
+        // Note: Workers are always exported (for backward compatibility and runtime invocation)
         // Workers receive a session parameter as the first argument
 
-        write!(self.output, "export function {}", worker.name)?;
+        if worker.is_default {
+            write!(self.output, "export default function {}", worker.name)?;
+        } else {
+            // Workers are always exported by default
+            write!(self.output, "export function {}", worker.name)?;
+        }
+
         self.generate_worker_params(&worker.params)?;
         self.output.push_str(" {\n");
 
@@ -123,9 +190,15 @@ impl CodeGenerator {
     /// Generate code for a function declaration
     fn generate_function(&mut self, func: &FunctionDecl) -> Result<()> {
         // Generate: export function funcName(params) { ... }
-        let export = if func.is_exported { "export " } else { "" };
+        // or: export default function funcName(params) { ... }
+        if func.is_default {
+            write!(self.output, "export default function {}", func.name)?;
+        } else if func.is_exported {
+            write!(self.output, "export function {}", func.name)?;
+        } else {
+            write!(self.output, "function {}", func.name)?;
+        }
 
-        write!(self.output, "{}function {}", export, func.name)?;
         self.generate_params(&func.params)?;
         self.output.push_str(" {\n");
 
@@ -157,20 +230,30 @@ impl CodeGenerator {
         // Trait methods receive a session parameter (like workers) to support self.delegate() and self.session
         // Annotations (@skill, @command) are extracted and used for plugin manifest generation
 
-        let export_prefix = if trait_decl.is_exported { "export " } else { "" };
+        let export_prefix = if trait_decl.is_exported || trait_decl.is_default {
+            "export "
+        } else {
+            ""
+        };
 
         // Extract plugin manifest from trait with annotations
-        if trait_decl.is_exported && !trait_decl.methods.is_empty() {
+        if (trait_decl.is_exported || trait_decl.is_default) && !trait_decl.methods.is_empty() {
             self.extract_plugin_manifest(trait_decl);
         }
 
-        for method in &trait_decl.methods {
+        for (i, method) in trait_decl.methods.iter().enumerate() {
             // Generate comment showing this came from a trait
             write!(self.output, "// Method from trait {}\n", trait_decl.name)?;
 
-            // Generate the function (exported if trait is exported)
+            // Generate the function (exported if trait is exported or default)
+            // For default exports, only the first method gets "export default", rest are just "export"
             // Trait methods receive session as first parameter (like workers)
-            write!(self.output, "{}function {}", export_prefix, method.name)?;
+            if trait_decl.is_default && i == 0 {
+                write!(self.output, "export default function {}", method.name)?;
+            } else {
+                write!(self.output, "{}function {}", export_prefix, method.name)?;
+            }
+
             self.output.push('(');
             self.output.push_str("session");
             for param in &method.params {

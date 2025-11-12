@@ -7,15 +7,18 @@ use crate::error::{CompileError, Result};
 use crate::codegen::CodeGenerator;
 use crate::prompts::PromptTemplate;
 use crate::manifest::PluginManifest;
+use crate::module::ModuleResolver;
 
 /// Compilation output structure
 pub struct CompileOutput {
-    /// Source file that was compiled
+    /// Source file that was compiled (entry point)
     pub source_file: PathBuf,
-    /// Source code (kept alive for AST references)
+    /// Source code (kept alive for AST references) - for single-file mode
     pub source: String,
-    /// Generated JavaScript code
+    /// Generated JavaScript code (single-file mode) or entry point module (multi-file mode)
     pub javascript: String,
+    /// Generated JavaScript modules by module ID (multi-file mode)
+    pub modules: HashMap<String, String>,
     /// Runtime JavaScript code
     pub runtime: String,
     /// Prompt templates extracted during compilation
@@ -68,17 +71,32 @@ impl Compiler {
         Self { options }
     }
 
-    /// Run the full compilation pipeline
+    /// Run the full compilation pipeline (multi-file mode)
     pub fn compile(&self) -> Result<CompileOutput> {
-        if self.options.verbose {
-            eprintln!("Compiling: {}", self.options.input.display());
-        }
-
-        // Read source file
+        // Determine if this is a multi-file project by checking for imports
         let source = self.read_source()?;
 
-        // Parse source into AST
-        let ast = self.parse(&source)?;
+        // Quick check: does the source contain "import" keyword?
+        // This is a heuristic to avoid parsing twice in most cases
+        let has_imports = source.contains("import ");
+
+        if has_imports {
+            // Multi-file compilation
+            self.compile_multi_file()
+        } else {
+            // Single-file compilation (backward compatibility)
+            // Parse the AST - we need to keep source_copy alive for the AST references
+            let source_copy = source.clone();
+            let ast = self.parse(&source_copy)?;
+            self.compile_single_file(source, ast)
+        }
+    }
+
+    /// Run single-file compilation (original behavior)
+    fn compile_single_file(&self, source: String, ast: Program) -> Result<CompileOutput> {
+        if self.options.verbose {
+            eprintln!("Compiling: {} (single-file mode)", self.options.input.display());
+        }
 
         if self.options.verbose {
             eprintln!("Parse successful: {} items", ast.items.len());
@@ -111,8 +129,100 @@ impl Compiler {
             source_file: self.options.input.clone(),
             source,
             javascript,
+            modules: HashMap::new(), // Single-file mode doesn't use modules
             runtime,
             prompts,
+            manifest_files,
+        })
+    }
+
+    /// Run multi-file compilation
+    fn compile_multi_file(&self) -> Result<CompileOutput> {
+        if self.options.verbose {
+            eprintln!("Compiling: {} (multi-file mode)", self.options.input.display());
+        }
+
+        // Get the root directory (parent of entry file)
+        let root = self.options.input.parent()
+            .ok_or_else(|| CompileError::ModuleResolution {
+                path: self.options.input.display().to_string(),
+                reason: "Cannot determine parent directory".to_string(),
+            })?;
+
+        // Resolve all modules starting from entry point
+        let mut resolver = ModuleResolver::new(root);
+        resolver.resolve(&self.options.input)?;
+
+        if self.options.verbose {
+            eprintln!("Resolved {} modules", resolver.modules().len());
+        }
+
+        // Compile each module in dependency order
+        let mut modules = HashMap::new();
+        let mut all_prompts = HashMap::new();
+        let mut manifest_files = HashMap::new();
+
+        let compilation_order = resolver.compilation_order();
+
+        for module in compilation_order {
+            if self.options.verbose {
+                eprintln!("Compiling module: {}", module.id);
+            }
+
+            // Re-parse the AST from the stored source
+            // This ensures the AST references are valid
+            let ast = patchwork_parser::parse(&module.source)
+                .map_err(|e| CompileError::parse(&module.path, e.to_string()))?;
+
+            let mut generator = CodeGenerator::new();
+            generator.set_module_id(&module.id);
+
+            let javascript = generator.generate(&ast)?;
+
+            // Collect prompts from this module
+            for prompt in generator.prompts() {
+                let prompt_id = format!("{}_{}", module.id.replace('/', "_"), prompt.id);
+                all_prompts.insert(prompt_id, prompt.markdown.clone());
+            }
+
+            // Collect manifest from entry point module only
+            if module.path == self.options.input {
+                if let Some(manifest) = generator.manifest() {
+                    manifest_files = manifest.get_files();
+                }
+            }
+
+            modules.insert(format!("{}.js", module.id), javascript);
+        }
+
+        if self.options.verbose {
+            eprintln!("Generated {} modules", modules.len());
+            eprintln!("Extracted {} prompt templates", all_prompts.len());
+            if !manifest_files.is_empty() {
+                eprintln!("Generated plugin manifest");
+            }
+        }
+
+        // Include runtime code
+        let runtime = crate::runtime::get_runtime_code().to_string();
+
+        // Get entry point module ID
+        let entry_module_id = resolver.modules().iter()
+            .find(|(_, m)| m.path == self.options.input)
+            .map(|(id, _)| id.clone())
+            .unwrap_or_else(|| "main".to_string());
+
+        let entry_javascript = modules.get(&format!("{}.js", entry_module_id))
+            .cloned()
+            .unwrap_or_default();
+
+        Ok(CompileOutput {
+            source_file: self.options.input.clone(),
+            source: String::new(), // Multi-file mode doesn't keep single source
+            javascript: entry_javascript,
+            modules,
+            runtime,
+            prompts: all_prompts,
             manifest_files,
         })
     }

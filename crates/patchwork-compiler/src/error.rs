@@ -30,6 +30,15 @@ pub enum CompileError {
 
     #[error("Formatting error: {0}")]
     Fmt(#[from] std::fmt::Error),
+
+    #[error("Circular dependency detected: {0}")]
+    CircularDependency(String),
+
+    #[error("Module not found: '{module}' imported from {from}")]
+    ModuleNotFound { module: String, from: String },
+
+    #[error("Module resolution error for {path}: {reason}")]
+    ModuleResolution { path: String, reason: String },
 }
 
 impl CompileError {

@@ -1,0 +1,7 @@
+import ./{helper}
+
+export default worker main() {
+    var msg = "Hello from main"
+    var result = helper.default(msg)
+    return result
+}
