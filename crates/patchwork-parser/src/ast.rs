@@ -103,7 +103,7 @@ pub struct Block<'input> {
     pub statements: Vec<Statement<'input>>,
 }
 
-/// Pattern for destructuring in variable declarations (Milestone 7)
+/// Pattern for destructuring in variable declarations
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern<'input> {
     /// Simple identifier pattern: `var x = ...` or `var x: type = ...`
@@ -170,7 +170,7 @@ pub enum Statement<'input> {
     },
 }
 
-/// Type expression (Milestone 8: complete type system)
+/// Type expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeExpr<'input> {
     /// Simple type name: `string`, `int`, etc.
@@ -224,7 +224,7 @@ pub enum UnOp {
     Throw,    // throw
 }
 
-/// String literal (Milestone 6: with interpolation support)
+/// String literal with interpolation support
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral<'input> {
     /// Parts of the string - mixture of text and interpolated expressions
@@ -264,7 +264,7 @@ pub enum RedirectOp {
     ErrToOut,
 }
 
-/// Expression (Milestone 3: minimal set for statement support, expanded in Milestones 4-7)
+/// Expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr<'input> {
     /// Identifier reference: `foo`

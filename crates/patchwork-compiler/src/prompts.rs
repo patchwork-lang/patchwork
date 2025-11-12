@@ -168,8 +168,7 @@ fn write_expr_as_placeholder(out: &mut String, expr: &Expr) -> Result<()> {
             out.push(']');
         }
         _ => {
-            // For complex expressions, we still extract vars but use a simplified placeholder
-            // This is a limitation of Phase 4 - we could improve this later
+            // Complex expressions in prompt placeholders not yet supported
             return Err(CompileError::Unsupported(
                 "Complex expressions in prompt placeholders not fully supported yet".into()
             ));

@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn test_parse_historian_main_structure() {
         // Parse just the structure (import + skill declaration) from historian main.pw
-        // Can't parse the body yet (Milestone 3+), but structure should work
+        // Parser structure test - body parsing handled by later grammar rules
         let input = r#"
             import ./{analyst, narrator, scribe}
 
@@ -692,7 +692,7 @@ mod tests {
         assert!(matches!(func.body.statements[2], Statement::Expr(Expr::True)));
     }
 
-    // ==================== Milestone 4: Basic Expressions ====================
+    // ==================== Basic Expression Tests ====================
 
     #[test]
     fn test_literals() {
@@ -1135,7 +1135,7 @@ mod tests {
         }
     }
 
-    // ===== Milestone 5: Prompt Expressions =====
+    // ===== Prompt Expression Tests =====
 
     #[test]
     fn test_simple_think_block() {
@@ -1442,7 +1442,7 @@ mod tests {
         }
     }
 
-    // ===== String Interpolation Tests (Milestone 6) =====
+    // ===== String Interpolation Tests =====
 
     #[test]
     fn test_string_interpolation_simple_id() {
@@ -1712,7 +1712,7 @@ mod tests {
         assert_eq!(program.items.len(), 1);
     }
 
-    // ==================== Milestone 7: Advanced Expressions ====================
+    // ==================== Advanced Expression Tests ====================
 
     #[test]
     fn test_array_literal_empty() {
@@ -2103,7 +2103,7 @@ mod tests {
         }
     }
 
-    // ===== Milestone 8: Type System Tests =====
+    // ===== Type System Tests =====
 
     #[test]
     fn test_simple_type_annotation() {
@@ -2578,7 +2578,7 @@ mod tests {
         }
     }
 
-    // ===== Milestone 9: Comments & Annotations =====
+    // ===== Comments & Annotations Tests =====
 
     #[test]
     fn test_inline_comment() {
@@ -2818,7 +2818,7 @@ skill rewriting_git_branch(changeset_description) {
     #[test]
     fn test_parse_historian_main_comments() {
         // Verify comments work correctly with a simplified version of main.pw
-        // Full main.pw parsing will succeed in Milestone 10 after implementing:
+        // Full main.pw parsing requires additional features:
         // - Bare command expressions (mkdir, echo, cat)
         // - await task syntax
         // - Complex bash substitution
@@ -2870,7 +2870,7 @@ skill rewriting_git_branch(changeset_description) {
     }
 
     // ========================================
-    // Milestone 10: Bare Command Tests
+    // Bare Command Tests
     // ========================================
 
     // Note: test_bare_command_in_task and test_bare_command_with_string removed
@@ -3156,7 +3156,7 @@ skill rewriting_git_branch(changeset_description) {
         println!("\n=== Historian analyst.pw AST (first 500 chars) ===\n{}", &dump[..dump.len().min(500)]);
     }
 
-    // Shell mode tests (Milestone 10)
+    // Shell Mode Tests
     #[test]
     fn test_shell_statement() {
         let input = "worker main() {\n    $ mkdir -p work_dir\n}";

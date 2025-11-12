@@ -94,7 +94,7 @@ pub enum ParserToken<'input> {
     // Comments
     Comment(&'input str),
 
-    // Shell mode tokens (Milestone 10)
+    // Shell mode tokens
     ShellArg(&'input str),
     ShellRedirectOut,        // >
     ShellRedirectAppend,     // >>

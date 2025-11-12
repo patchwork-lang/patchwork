@@ -169,7 +169,7 @@ where
                 ParserToken::PromptEscape(escaped_char)
             },
             Rule::Comment => ParserToken::Comment(text),
-            // Shell mode tokens (Milestone 10)
+            // Shell mode tokens
             Rule::ShellArg => ParserToken::ShellArg(text),
             Rule::ShellRedirectOut => ParserToken::ShellRedirectOut,
             Rule::ShellRedirectAppend => ParserToken::ShellRedirectAppend,

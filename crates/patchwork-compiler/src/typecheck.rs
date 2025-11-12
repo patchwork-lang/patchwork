@@ -1,6 +1,6 @@
 /// Type checking and semantic analysis
 ///
-/// This module implements Phase 8: Type System Foundation
+/// Provides compile-time type checking and semantic validation:
 /// - Symbol table construction
 /// - Scope analysis and variable binding validation
 /// - Basic type inference

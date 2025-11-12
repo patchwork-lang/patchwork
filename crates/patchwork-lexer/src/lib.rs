@@ -1468,7 +1468,7 @@ var session_id = "historian-${timestamp}""#;
         Ok(())
     }
 
-    // Shell mode tests (Milestone 10)
+    // Shell Mode Tests
     #[test]
     fn test_shell_mode_basic() -> Result<(), ParlexError> {
         let input = "$ mkdir work_dir\n";
