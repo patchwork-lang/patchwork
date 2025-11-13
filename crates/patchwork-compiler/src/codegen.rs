@@ -22,6 +22,8 @@ pub struct CodeGenerator {
     manifest: Option<PluginManifest>,
     /// Module ID for this compilation unit (used for generating relative imports)
     module_id: Option<String>,
+    /// Current worker name (for generating prompt skill names)
+    current_worker: Option<String>,
 }
 
 impl CodeGenerator {
@@ -34,6 +36,7 @@ impl CodeGenerator {
             prompt_counter: 0,
             manifest: None,
             module_id: None,
+            current_worker: None,
         }
     }
 
@@ -154,6 +157,9 @@ impl CodeGenerator {
         // Note: Workers are always exported (for backward compatibility and runtime invocation)
         // Workers receive a session parameter as the first argument
 
+        // Set current worker context for prompt skill naming
+        self.current_worker = Some(worker.name.to_string());
+
         if worker.is_default {
             write!(self.output, "export default function {}", worker.name)?;
         } else {
@@ -169,6 +175,10 @@ impl CodeGenerator {
         self.indent -= 1;
 
         self.output.push_str("}\n");
+
+        // Clear worker context after generation
+        self.current_worker = None;
+
         Ok(())
     }
 
@@ -933,17 +943,27 @@ impl CodeGenerator {
 
     /// Generate code for a prompt expression (think/ask)
     fn generate_prompt_expr(&mut self, block: &PromptBlock, kind: PromptKind) -> Result<()> {
-        // Generate a unique ID for this prompt
+        // Get current worker name (required for skill naming)
+        let worker_name = self.current_worker.clone().ok_or_else(|| {
+            CompileError::Unsupported(
+                "Prompt blocks (think/ask) must be used inside a worker".into()
+            )
+        })?;
+
+        // Generate a unique ID for this prompt within the worker
         let id = format!("{}_{}", kind.as_str(), self.prompt_counter);
         self.prompt_counter += 1;
 
-        // Extract the prompt template
-        let template = extract_prompt_template(block, kind, id.clone())?;
+        // Extract the prompt template with worker context
+        let template = extract_prompt_template(block, kind, id.clone(), worker_name)?;
+
+        // Generate skill name: {worker_name}_{kind}_{n}
+        let skill_name = format!("{}_{}", template.worker_name, template.id);
 
         // Generate the IPC call:
-        // await executePrompt(session, 'think_0', { name: name, description: description })
+        // await executePrompt(session, 'worker_think_0', { name: name, description: description })
         self.output.push_str("await executePrompt(session, '");
-        self.output.push_str(&template.id);
+        self.output.push_str(&skill_name);
         self.output.push_str("', { ");
 
         // Generate the bindings object

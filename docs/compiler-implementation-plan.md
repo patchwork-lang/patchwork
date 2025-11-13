@@ -228,12 +228,12 @@ trait Example: Agent {
   - [x] Message envelope with metadata (sender, recipient, timestamp, payload)
   - [x] Filesystem watching with periodic polling fallback
   - [x] Unit tests for mailbox functionality (4 new tests, 251 total passing)
-- [ ] **Prompt block compilation** - Think/ask blocks to skill documents
-  - [ ] Detect think/ask blocks during codegen
-  - [ ] Generate skill documents for each block (skills/{worker}_think_{n}/SKILL.md)
-  - [ ] Replace blocks with executePrompt() calls
-  - [ ] Capture and pass variable bindings from lexical scope
-  - [ ] Update manifest generation to include generated skills
+- [x] **Prompt block compilation** - Think/ask blocks to skill documents
+  - [x] Detect think/ask blocks during codegen
+  - [x] Generate skill documents for each block (skills/{module}_{worker}_{kind}_{n}/SKILL.md)
+  - [x] Replace blocks with executePrompt() calls with skill names
+  - [x] Capture and pass variable bindings from lexical scope
+  - [x] Skill documents include frontmatter, variable bindings section, and task content
 - [ ] **IPC infrastructure** - Code ↔ Prompt communication
   - [ ] Implement code-process-init.js helper script
   - [ ] Update executePrompt() with stdio IPC (replace mock)
@@ -304,11 +304,11 @@ The MVP is complete when:
 - [ ] The generated code is readable and maintainable
 - [ ] Common errors are caught at compile time
 
-**Current Status**: Phase 11 in progress
+**Current Status**: Phase 11 in progress (~40% complete)
 - ✅ Phases 1-10 complete (251 tests passing)
 - ✅ Filesystem-based mailboxes implemented
-- 🚧 Prompt block compilation (next)
-- 🚧 IPC infrastructure
+- ✅ Prompt block compilation complete (skill documents generated)
+- 🚧 IPC infrastructure (next)
 - 🚧 Manifest updates
 - 🚧 Integration testing
 

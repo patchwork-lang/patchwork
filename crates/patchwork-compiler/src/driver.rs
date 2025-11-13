@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use patchwork_parser::ast::Program;
 use crate::error::{CompileError, Result};
 use crate::codegen::CodeGenerator;
-use crate::prompts::PromptTemplate;
+use crate::prompts::{PromptTemplate, PromptKind};
 use crate::manifest::PluginManifest;
 use crate::module::ModuleResolver;
 use crate::typecheck::TypeChecker;
@@ -125,9 +125,15 @@ impl Compiler {
         // Include runtime code
         let runtime = crate::runtime::get_runtime_code().to_string();
 
-        // Convert prompt templates to markdown map
+        // Convert prompt templates to skill documents
         let prompts = prompt_templates.into_iter()
-            .map(|t| (t.id.clone(), t.markdown.clone()))
+            .map(|t| {
+                // For single-file mode, use "main" as module prefix
+                let skill_name = format!("main_{}_{}", t.worker_name, t.id);
+                let skill_content = generate_skill_document(&skill_name, &t);
+                let skill_path = format!("skills/{}/SKILL.md", skill_name);
+                (skill_path, skill_content)
+            })
             .collect();
 
         // Convert manifest to file map
@@ -196,10 +202,21 @@ impl Compiler {
 
             let javascript = generator.generate(&ast)?;
 
-            // Collect prompts from this module
+            // Collect prompts from this module and generate skill documents
             for prompt in generator.prompts() {
-                let prompt_id = format!("{}_{}", module.id.replace('/', "_"), prompt.id);
-                all_prompts.insert(prompt_id, prompt.markdown.clone());
+                // Generate skill name: {module}_{worker}_{kind}_{n}
+                let skill_name = format!("{}_{}_{}",
+                    module.id.replace('/', "_"),
+                    prompt.worker_name,
+                    prompt.id
+                );
+
+                // Generate skill document content
+                let skill_content = generate_skill_document(&skill_name, prompt);
+
+                // Store skill document at skills/{skill_name}/SKILL.md
+                let skill_path = format!("skills/{}/SKILL.md", skill_name);
+                all_prompts.insert(skill_path, skill_content);
             }
 
             // Collect manifest from entry point module only
@@ -281,6 +298,61 @@ impl Compiler {
 
         Ok(dir)
     }
+}
+
+/// Generate a skill document for a prompt block
+fn generate_skill_document(skill_name: &str, prompt: &PromptTemplate) -> String {
+    let kind_label = match prompt.kind {
+        PromptKind::Think => "Think",
+        PromptKind::Ask => "Ask",
+    };
+
+    let mut doc = String::new();
+
+    // Frontmatter
+    doc.push_str("---\n");
+    doc.push_str(&format!("name: {}\n", skill_name));
+    doc.push_str(&format!("description: {} block from worker {}\n", kind_label, prompt.worker_name));
+    doc.push_str("allowed-tools: All\n");
+    doc.push_str("---\n\n");
+
+    // Title
+    doc.push_str(&format!("# {} - {} Block\n\n",
+        prompt.worker_name,
+        kind_label
+    ));
+
+    // Variable bindings section (if any)
+    if !prompt.required_bindings.is_empty() {
+        doc.push_str("## Input Variables\n\n");
+        doc.push_str("The following variables are available:\n\n");
+
+        let mut bindings: Vec<_> = prompt.required_bindings.iter().collect();
+        bindings.sort();
+
+        for binding in bindings {
+            doc.push_str(&format!("- `{}`: ${{BINDING_{}}}\n", binding, binding));
+        }
+        doc.push_str("\n");
+    }
+
+    // Task section with the actual prompt content
+    doc.push_str("## Task\n\n");
+    doc.push_str(&prompt.markdown);
+    doc.push_str("\n\n");
+
+    // Output section
+    doc.push_str("## Output\n\n");
+    match prompt.kind {
+        PromptKind::Think => {
+            doc.push_str("Return your analysis result as structured data.\n");
+        }
+        PromptKind::Ask => {
+            doc.push_str("Interact with the user and return their response.\n");
+        }
+    }
+
+    doc
 }
 
 #[cfg(test)]

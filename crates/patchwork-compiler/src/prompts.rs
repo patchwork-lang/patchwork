@@ -14,6 +14,8 @@ pub struct PromptTemplate {
     pub id: String,
     /// The type of prompt (think or ask)
     pub kind: PromptKind,
+    /// Worker name this prompt belongs to (e.g., "example", "narrator")
+    pub worker_name: String,
     /// Generated markdown content with ${variable} placeholders intact
     pub markdown: String,
     /// Set of variable names that need to be bound at runtime
@@ -41,6 +43,7 @@ pub fn extract_prompt_template(
     block: &PromptBlock,
     kind: PromptKind,
     id: String,
+    worker_name: String,
 ) -> Result<PromptTemplate> {
     let mut markdown = String::new();
     let mut required_bindings = HashSet::new();
@@ -73,6 +76,7 @@ pub fn extract_prompt_template(
     Ok(PromptTemplate {
         id,
         kind,
+        worker_name,
         markdown,
         required_bindings,
     })
@@ -189,8 +193,9 @@ mod tests {
             ],
         };
 
-        let template = extract_prompt_template(&block, PromptKind::Think, "think_0".into()).unwrap();
+        let template = extract_prompt_template(&block, PromptKind::Think, "think_0".into(), "test_worker".into()).unwrap();
         assert_eq!(template.markdown, "Hello, world!");
+        assert_eq!(template.worker_name, "test_worker");
         assert!(template.required_bindings.is_empty());
     }
 
@@ -204,8 +209,9 @@ mod tests {
             ],
         };
 
-        let template = extract_prompt_template(&block, PromptKind::Think, "think_0".into()).unwrap();
+        let template = extract_prompt_template(&block, PromptKind::Think, "think_0".into(), "example".into()).unwrap();
         assert_eq!(template.markdown, "Hello, ${name}!");
+        assert_eq!(template.worker_name, "example");
         assert!(template.required_bindings.contains("name"));
     }
 
@@ -221,8 +227,9 @@ mod tests {
             ],
         };
 
-        let template = extract_prompt_template(&block, PromptKind::Ask, "ask_0".into()).unwrap();
+        let template = extract_prompt_template(&block, PromptKind::Ask, "ask_0".into(), "greeter".into()).unwrap();
         assert_eq!(template.markdown, "User: ${user.name}");
+        assert_eq!(template.worker_name, "greeter");
         // Should only bind "user", not "name"
         assert!(template.required_bindings.contains("user"));
         assert_eq!(template.required_bindings.len(), 1);

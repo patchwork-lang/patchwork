@@ -491,16 +491,18 @@ worker example() {
 
     let (js, prompts) = compile_with_prompts(source).expect("compilation failed");
 
-    // Verify JS contains executePrompt call
-    assert!(js.contains("await executePrompt(session, 'think_0', {  })"),
-            "JS should contain executePrompt call for think_0");
+    // Verify JS contains executePrompt call with skill name: {worker}_{kind}_{n}
+    assert!(js.contains("await executePrompt(session, 'example_think_0', {  })"),
+            "JS should contain executePrompt call for example_think_0");
 
-    // Verify prompt template was extracted
-    assert_eq!(prompts.len(), 1, "Should have 1 prompt template");
-    assert!(prompts.contains_key("think_0"), "Should have think_0 template");
+    // Verify prompt skill document was generated
+    assert_eq!(prompts.len(), 1, "Should have 1 prompt skill");
+    assert!(prompts.contains_key("skills/main_example_think_0/SKILL.md"),
+            "Should have skill document at skills/main_example_think_0/SKILL.md");
 
-    let markdown = &prompts["think_0"];
-    assert!(markdown.contains("Hello, world!"), "Markdown should contain the prompt text");
+    let skill_doc = &prompts["skills/main_example_think_0/SKILL.md"];
+    assert!(skill_doc.contains("Hello, world!"), "Skill doc should contain the prompt text");
+    assert!(skill_doc.contains("name: main_example_think_0"), "Skill doc should have correct name");
 }
 
 #[test]
@@ -516,14 +518,18 @@ worker example() {
 
     let (js, prompts) = compile_with_prompts(source).expect("compilation failed");
 
-    // Verify JS passes variable binding
-    assert!(js.contains("await executePrompt(session, 'think_0', { name })"),
+    // Verify JS passes variable binding with new skill naming
+    assert!(js.contains("await executePrompt(session, 'example_think_0', { name })"),
             "JS should pass name binding to executePrompt");
 
-    // Verify prompt template has placeholder
-    let markdown = &prompts["think_0"];
-    assert!(markdown.contains("Say hello to") && markdown.contains("${name}"),
-            "Markdown should preserve variable placeholder. Got: {}", markdown);
+    // Verify prompt skill document has placeholder and variable bindings section
+    let skill_doc = &prompts["skills/main_example_think_0/SKILL.md"];
+    assert!(skill_doc.contains("Say hello to") && skill_doc.contains("${name}"),
+            "Skill doc should preserve variable placeholder. Got: {}", skill_doc);
+    assert!(skill_doc.contains("## Input Variables"),
+            "Skill doc should have Input Variables section");
+    assert!(skill_doc.contains("`name`: ${BINDING_name}"),
+            "Skill doc should list name variable");
 }
 
 #[test]
@@ -545,9 +551,9 @@ worker example() {
     assert!(js.contains("description") && js.contains("build_cmd"),
             "JS should bind both description and build_cmd");
 
-    let markdown = &prompts["think_0"];
-    assert!(markdown.contains("description"), "Markdown should have description placeholder");
-    assert!(markdown.contains("build_cmd"), "Markdown should have build_cmd placeholder");
+    let skill_doc = &prompts["skills/main_example_think_0/SKILL.md"];
+    assert!(skill_doc.contains("description"), "Skill doc should have description placeholder");
+    assert!(skill_doc.contains("build_cmd"), "Skill doc should have build_cmd placeholder");
 }
 
 #[test]
@@ -562,11 +568,16 @@ worker example() {
 
     let (js, prompts) = compile_with_prompts(source).expect("compilation failed");
 
-    // Verify ask block generates ask_0
-    assert!(js.contains("await executePrompt(session, 'ask_0', {  })"),
-            "JS should contain executePrompt call for ask_0");
+    // Verify ask block generates skill with worker name prefix
+    assert!(js.contains("await executePrompt(session, 'example_ask_0', {  })"),
+            "JS should contain executePrompt call for example_ask_0");
 
-    assert!(prompts.contains_key("ask_0"), "Should have ask_0 template");
+    assert!(prompts.contains_key("skills/main_example_ask_0/SKILL.md"),
+            "Should have ask skill document");
+
+    let skill_doc = &prompts["skills/main_example_ask_0/SKILL.md"];
+    assert!(skill_doc.contains("What would you like to do?"),
+            "Skill doc should contain the ask prompt text");
 }
 
 #[test]
@@ -581,15 +592,15 @@ worker example() {
 
     let (js, prompts) = compile_with_prompts(source).expect("compilation failed");
 
-    // Verify unique IDs for each prompt (counter is shared across types)
-    assert!(js.contains("'think_0'"), "Should have think_0");
-    assert!(js.contains("'ask_1'"), "Should have ask_1");
-    assert!(js.contains("'think_2'"), "Should have think_2");
+    // Verify unique IDs for each prompt (counter is shared across types, with worker name prefix)
+    assert!(js.contains("'example_think_0'"), "Should have example_think_0");
+    assert!(js.contains("'example_ask_1'"), "Should have example_ask_1");
+    assert!(js.contains("'example_think_2'"), "Should have example_think_2");
 
-    assert_eq!(prompts.len(), 3, "Should have 3 prompt templates");
-    assert!(prompts.contains_key("think_0"));
-    assert!(prompts.contains_key("ask_1"));
-    assert!(prompts.contains_key("think_2"));
+    assert_eq!(prompts.len(), 3, "Should have 3 prompt skill documents");
+    assert!(prompts.contains_key("skills/main_example_think_0/SKILL.md"));
+    assert!(prompts.contains_key("skills/main_example_ask_1/SKILL.md"));
+    assert!(prompts.contains_key("skills/main_example_think_2/SKILL.md"));
 }
 
 #[test]
@@ -608,8 +619,8 @@ worker example() {
     // Should bind the root object "user", not "name"
     assert!(js.contains("{ user }"), "JS should bind user object");
 
-    let markdown = &prompts["think_0"];
-    assert!(markdown.contains("user.name"), "Markdown should preserve member access");
+    let skill_doc = &prompts["skills/main_example_think_0/SKILL.md"];
+    assert!(skill_doc.contains("user.name"), "Skill doc should preserve member access");
 }
 
 #[test]
