@@ -1,4 +1,6 @@
 use patchwork_lexer::{LexerContext, PatchworkToken, Rule};
+use parlex::ParlexError;
+use std::any::Any;
 use try_next::TryNextWithContext;
 use crate::token::ParserToken;
 
@@ -216,7 +218,7 @@ where
 
 impl<'input, L> Iterator for LexerAdapter<'input, L>
 where
-    L: TryNextWithContext<LexerContext, Item = PatchworkToken, Error: std::fmt::Display>,
+    L: TryNextWithContext<LexerContext, Item = PatchworkToken, Error: std::fmt::Display + Any + 'static>,
 {
     type Item = Result<(usize, ParserToken<'input>, usize), ParseError>;
 
@@ -249,13 +251,29 @@ where
                 }
                 Ok(None) => return None,
                 Err(e) => {
+                    let span = extract_span(&e).map(|s| {
+                        let start = position_to_offset(
+                            self.input,
+                            &self.line_starts,
+                            s.start.line,
+                            s.start.column,
+                        );
+                        let end =
+                            position_to_offset(self.input, &self.line_starts, s.end.line, s.end.column);
+                        (start, end)
+                    });
+
                     return Some(Err(ParseError::LexerError {
                         message: e.to_string(),
-                        byte_offset: None,
-                        span: None,
+                        byte_offset: span.as_ref().map(|(s, _)| *s),
+                        span,
                     }));
                 }
             }
         }
     }
+}
+
+fn extract_span(err: &dyn Any) -> Option<parlex::Span> {
+    err.downcast_ref::<ParlexError>().and_then(|pe| pe.span)
 }
