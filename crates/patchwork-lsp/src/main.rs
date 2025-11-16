@@ -74,24 +74,34 @@ fn compute_diagnostics(text: &str) -> Vec<Diagnostic> {
 }
 
 fn diagnostic_from_error(err: ParseError, text: &str) -> Diagnostic {
-    let (message, pos) = match err {
-        ParseError::LexerError { message, byte_offset } => (message, byte_offset),
-        ParseError::UnexpectedToken { message, byte_offset } => (message, byte_offset),
+    let (message, byte_offset, span) = match err {
+        ParseError::LexerError {
+            message,
+            byte_offset,
+            span,
+        } => (message, byte_offset, span),
+        ParseError::UnexpectedToken {
+            message,
+            byte_offset,
+            span,
+        } => (message, byte_offset, span),
     };
 
-    let position = pos.map(|p| byte_offset_to_position(text, p));
-
-    let range = if let Some(pos) = position {
+    let range = if let Some((start, end)) = span {
         Range {
-            start: pos,
-            end: pos,
+            start: byte_offset_to_position(text, start),
+            end: byte_offset_to_position(text, end),
         }
+    } else if let Some(pos) = byte_offset {
+        let p = byte_offset_to_position(text, pos);
+        Range { start: p, end: p }
     } else {
         Range {
             start: Position::new(0, 0),
             end: Position::new(0, 1),
         }
     };
+
 
     Diagnostic {
         range,

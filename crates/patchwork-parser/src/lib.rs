@@ -23,6 +23,7 @@ pub fn parse(input: &str) -> Result<Program<'_>, ParseError> {
     let lexer = lex_str(input).map_err(|e| LexerError {
         message: e.to_string(),
         byte_offset: None,
+        span: None,
     })?;
 
     // Create adapter
@@ -35,28 +36,33 @@ pub fn parse(input: &str) -> Result<Program<'_>, ParseError> {
             LalrpopError::InvalidToken { location } => UnexpectedToken {
                 message: "Invalid token".to_string(),
                 byte_offset: Some(location),
+                span: None,
             },
             LalrpopError::UnrecognizedEof { location, expected } => UnexpectedToken {
                 message: format!("Unexpected end of file, expected: {:?}", expected),
                 byte_offset: Some(location),
+                span: None,
             },
             LalrpopError::UnrecognizedToken { token, expected } => {
-                let (location, tok, ..) = token;
+                let (location, tok, end) = token;
                 UnexpectedToken {
                     message: format!("Unexpected token {:?}, expected: {:?}", tok, expected),
                     byte_offset: Some(location),
+                    span: Some((location, end)),
                 }
             }
             LalrpopError::ExtraToken { token } => {
-                let (location, tok, ..) = token;
+                let (location, tok, end) = token;
                 UnexpectedToken {
                     message: format!("Extra token {:?}", tok),
                     byte_offset: Some(location),
+                    span: Some((location, end)),
                 }
             }
             LalrpopError::User { error } => UnexpectedToken {
                 message: format!("{:?}", error),
                 byte_offset: None,
+                span: None,
             },
         })
 }
