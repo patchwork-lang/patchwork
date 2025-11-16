@@ -38,22 +38,6 @@ fn position_to_offset(input: &str, line_starts: &[usize], line: usize, column: u
     line_start + input[line_start..].len()
 }
 
-/// Convert a byte offset back to (line, column)
-fn offset_to_position(line_starts: &[usize], offset: usize) -> (usize, usize) {
-    // Find the last line start that is <= offset
-    let mut line = 0;
-    for (idx, &start) in line_starts.iter().enumerate() {
-        if start > offset {
-            break;
-        }
-        line = idx;
-    }
-
-    let line_start = line_starts[line];
-    let column = offset.saturating_sub(line_start);
-    (line, column)
-}
-
 /// Error type for the parser
 #[derive(Debug)]
 pub enum ParseError {

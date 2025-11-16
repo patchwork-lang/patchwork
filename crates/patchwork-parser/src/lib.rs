@@ -36,12 +36,12 @@ pub fn parse(input: &str) -> Result<Program<'_>, ParseError> {
             LalrpopError::InvalidToken { location } => UnexpectedToken {
                 message: "Invalid token".to_string(),
                 byte_offset: Some(location),
-                span: None,
+                span: Some((location, location)),
             },
             LalrpopError::UnrecognizedEof { location, expected } => UnexpectedToken {
                 message: format!("Unexpected end of file, expected: {:?}", expected),
                 byte_offset: Some(location),
-                span: None,
+                span: Some((location, location)),
             },
             LalrpopError::UnrecognizedToken { token, expected } => {
                 let (location, tok, end) = token;
