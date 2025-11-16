@@ -2,6 +2,8 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use patchwork_parser::parse;
+
 #[derive(Clone)]
 struct Backend {
     client: Client,
@@ -63,9 +65,29 @@ impl LanguageServer for Backend {
     }
 }
 
-fn compute_diagnostics(_text: &str) -> Vec<Diagnostic> {
-    // TODO: hook Patchwork parser for real diagnostics
-    Vec::new()
+fn compute_diagnostics(text: &str) -> Vec<Diagnostic> {
+    match parse(text) {
+        Ok(_) => Vec::new(),
+        Err(err) => vec![diagnostic_from_error(err)],
+    }
+}
+
+fn diagnostic_from_error(err: patchwork_parser::ParseError) -> Diagnostic {
+    // TODO: Map real span info once ParseError carries locations.
+    Diagnostic {
+        range: Range {
+            start: Position::new(0, 0),
+            end: Position::new(0, 1),
+        },
+        severity: Some(DiagnosticSeverity::ERROR),
+        code: None,
+        code_description: None,
+        source: Some("patchwork".to_string()),
+        message: format!("{err:?}"),
+        related_information: None,
+        tags: None,
+        data: None,
+    }
 }
 
 #[tokio::main]

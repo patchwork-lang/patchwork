@@ -9,3 +9,4 @@ publish = false
 [dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tower-lsp = "0.20"
+patchwork-parser = { path = "../patchwork-parser" }
