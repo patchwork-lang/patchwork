@@ -1,18 +1,23 @@
-use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer, LspService, Server};
-
 use patchwork_parser::parse;
 use patchwork_parser::ParseError;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tower_lsp::lsp_types::*;
+use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 #[derive(Clone)]
 struct Backend {
     client: Client,
+    documents: Arc<RwLock<HashMap<Url, String>>>,
 }
 
 impl Backend {
     fn new(client: Client) -> Self {
-        Self { client }
+        Self {
+            client,
+            documents: Arc::new(RwLock::new(HashMap::new())),
+        }
     }
 
     async fn publish_diagnostics(&self, uri: Url, text: String) {
@@ -26,12 +31,14 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, _: InitializeParams) -> tower_lsp::jsonrpc::Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
+                completion_provider: Some(CompletionOptions::default()),
                 ..ServerCapabilities::default()
             },
             server_info: Some(ServerInfo {
@@ -45,11 +52,15 @@ impl LanguageServer for Backend {
         let _ = self.client.log_message(MessageType::INFO, "Patchwork LSP ready").await;
     }
 
-    async fn shutdown(&self) -> Result<()> {
+    async fn shutdown(&self) -> tower_lsp::jsonrpc::Result<()> {
         Ok(())
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        {
+            let mut docs = self.documents.write().await;
+            docs.insert(params.text_document.uri.clone(), params.text_document.text.clone());
+        }
         self.publish_diagnostics(params.text_document.uri, params.text_document.text)
             .await;
     }
@@ -62,7 +73,40 @@ impl LanguageServer for Backend {
             .last()
             .map(|c| c.text)
             .unwrap_or_default();
+        {
+            let mut docs = self.documents.write().await;
+            docs.insert(uri.clone(), text.clone());
+        }
         self.publish_diagnostics(uri, text).await;
+    }
+
+    async fn hover(&self, params: HoverParams) -> tower_lsp::jsonrpc::Result<Option<Hover>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+
+        let docs = self.documents.read().await;
+        let text = if let Some(text) = docs.get(&uri) {
+            text.clone()
+        } else {
+            return Ok(None);
+        };
+
+        if let Some((range, word)) = word_at_position(&text, position) {
+            return Ok(Some(Hover {
+                contents: HoverContents::Scalar(MarkedString::String(word)),
+                range: Some(range),
+            }));
+        }
+
+        Ok(None)
+    }
+
+    async fn completion(
+        &self,
+        _: CompletionParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<CompletionResponse>> {
+        // Placeholder: no completions yet.
+        Ok(Some(CompletionResponse::Array(Vec::new())))
     }
 }
 
@@ -154,6 +198,42 @@ fn byte_offset_to_position(text: &str, byte_offset: usize) -> Position {
     }
 
     Position::new(line as u32, col as u32)
+}
+
+fn word_at_position(text: &str, position: Position) -> Option<(Range, String)> {
+    let Position { line, character } = position;
+    let line = line as usize;
+    let character = character as usize;
+
+    let line_str = text.lines().nth(line)?;
+    if character > line_str.len() {
+        return None;
+    }
+
+    let bytes = line_str.as_bytes();
+    let mut start = character;
+    while start > 0 && is_word_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    let mut end = character;
+    while end < bytes.len() && is_word_byte(bytes[end]) {
+        end += 1;
+    }
+
+    if start == end {
+        return None;
+    }
+
+    let word = line_str[start..end].to_string();
+    let range = Range {
+        start: Position::new(line as u32, start as u32),
+        end: Position::new(line as u32, end as u32),
+    };
+    Some((range, word))
+}
+
+fn is_word_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
 }
 
 #[tokio::main]
