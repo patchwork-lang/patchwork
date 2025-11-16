@@ -88,9 +88,12 @@ fn diagnostic_from_error(err: ParseError, text: &str) -> Diagnostic {
     };
 
     let range = if let Some((start, end)) = span {
+        let start_pos = byte_offset_to_position(text, start);
+        // Ensure the range spans at least one character to avoid zero-length diagnostics.
+        let end_pos = byte_offset_to_position(text, if end <= start { start + 1 } else { end });
         Range {
-            start: byte_offset_to_position(text, start),
-            end: byte_offset_to_position(text, end),
+            start: start_pos,
+            end: end_pos,
         }
     } else if let Some(pos) = byte_offset {
         let p = byte_offset_to_position(text, pos);
