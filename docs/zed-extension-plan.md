@@ -50,7 +50,7 @@
 - [x] Decide whether to adapt the current compiler into an LSP (diagnostics, hover, completion) or defer.
 - [x] If pursuing, implement a language server binary (Rust or JS) that reuses `patchwork-parser`/`patchwork-compiler` crates for analysis.
 - [x] Register `[language_servers.patchwork]` in `extension.toml` with `languages = ["Patchwork"]` and implement `language_server_command` in the Rust extension harness.
-- [ ] Map any custom `language_ids` and test completions/diagnostics formatting within Zed.
+- [x] Map any custom `language_ids` and test completions/diagnostics formatting within Zed.
 
 ## Phase 5: QA & Release
 

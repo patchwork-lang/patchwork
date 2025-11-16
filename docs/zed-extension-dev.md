@@ -26,4 +26,5 @@ The extension files are rooted at `editors/zed/extension.toml`, `editors/zed/lan
 ## Language Server
 - A minimal LSP server lives at `crates/patchwork-lsp` (diagnostics placeholder).
 - Run it locally with `./scripts/run-lsp.sh` or `cargo run -p patchwork-lsp`.
-- Zed loads it via `editors/zed/extension.toml` (`languages = ["Patchwork"]`, command `patchwork-lsp`).
+- Zed loads it via `editors/zed/extension.toml` (`languages = ["Patchwork"]`, `language_ids = ["patchwork"]`, command `patchwork-lsp`).
+- Hover/completions are basic (document keywords/identifiers) and diagnostics surface parser errors; verify formatting in Zed by opening a `.pw` file with intentional errors.
