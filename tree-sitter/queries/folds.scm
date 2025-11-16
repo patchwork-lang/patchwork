@@ -12,6 +12,7 @@
   (while_statement)
   (for_statement)
   (array_literal)
+  (object_literal)
   (parameter_list)
   (argument_list)
 ] @fold

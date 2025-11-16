@@ -37,6 +37,9 @@
 ((parameter name: (identifier) @variable.parameter))
 ((identifier) @variable)
 
+((object_field key: (identifier) @property))
+((object_field key: (object_key) @property))
+
 ((number) @number)
 ((boolean) @constant)
 ((string) @string)

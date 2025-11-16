@@ -1,0 +1,360 @@
+================================================================================
+Prompt demo sample
+================================================================================
+worker code_review_assistant() {
+    var task_description = "Add OAuth support to the login system"
+    var build_command = "cargo check --all-targets"
+
+    var analysis = think {
+        The user wants to: ${task_description}
+
+        Please analyze this task and provide:
+        1. What files likely need to be modified
+        2. What dependencies might be needed
+        3. Potential security considerations
+
+        After analysis, use ${build_command} to verify the build.
+    }
+
+    var next_action = ask {
+        Based on the analysis, what would you like to do next?
+
+        Options:
+        1. Start implementing the changes
+        2. Create a design document first
+        3. Research OAuth providers
+    }
+
+    var implementation_plan = think {
+        Create an implementation plan for: ${task_description}
+
+        User selected: ${next_action}
+
+        Break down the work into concrete steps.
+    }
+
+    return implementation_plan
+}
+
+worker simple_greeting() {
+    var user_name = "David"
+
+    var greeting = think {
+        Say hello to ${user_name} and ask how you can help today.
+    }
+
+    var user_request = ask {
+        What would you like to work on?
+    }
+
+    return user_request
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    (identifier)
+    (parameter_list)
+    (block
+      (var_declaration
+        (identifier)
+        (string))
+      (var_declaration
+        (identifier)
+        (string))
+      (var_declaration
+        (identifier)
+        (prompt_block
+          (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
+            (prompt_end))))
+      (var_declaration
+        (identifier)
+        (prompt_block
+          (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_end))))
+      (var_declaration
+        (identifier)
+        (prompt_block
+          (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
+            (prompt_end))))
+      (return_statement
+        (identifier))))
+  (worker_declaration
+    (identifier)
+    (parameter_list)
+    (block
+      (var_declaration
+        (identifier)
+        (string))
+      (var_declaration
+        (identifier)
+        (prompt_block
+          (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
+            (prompt_end))))
+      (var_declaration
+        (identifier)
+        (prompt_block
+          (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_end))))
+      (return_statement
+        (identifier)))))
+
+================================================================================
+Mailbox demo sample
+================================================================================
+# Mailbox Demo: Message Passing Between Workers
+#
+# This demonstrates workers communicating via mailboxes.
+# The coordinator sends tasks to a worker and receives results.
+
+worker coordinator() {
+    var task = {
+        action: "analyze",
+        target: "src/main.rs"
+    }
+
+    self.session.mailbox.tasks.send(task)
+
+    var result = self.session.mailbox.results.receive(5000).await
+
+    think {
+        The analysis found: ${result.summary}
+    }
+
+    return result
+}
+
+worker analyzer() {
+    var task = self.session.mailbox.tasks.receive(10000).await
+
+    var output = $(cat ${task.target})
+
+    var analysis_result = {
+        file: task.target,
+        summary: "File contains Rust code",
+        lines: output
+    }
+
+    self.session.mailbox.results.send(analysis_result)
+
+    return analysis_result
+}
+
+worker multi_message_demo() {
+    var i = 0
+    while (i < 3) {
+        self.session.mailbox.events.send({
+            type: "progress",
+            step: i
+        })
+        i = i + 1
+    }
+
+    self.session.mailbox.events.send({
+        type: "complete"
+    })
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (comment)
+  (comment)
+  (comment)
+  (worker_declaration
+    (identifier)
+    (parameter_list)
+    (block
+      (var_declaration
+        (identifier)
+        (object_literal
+          (object_field
+            (object_key
+              (identifier))
+            (string))
+          (object_field
+            (object_key
+              (identifier))
+            (string))))
+      (expression_statement
+        (call_expression
+          (member_expression
+            (member_expression
+              (member_expression
+                (member_expression
+                  (self_expression)
+                  (identifier))
+                (identifier))
+              (identifier))
+            (identifier))
+          (argument_list
+            (identifier))))
+      (var_declaration
+        (identifier)
+        (member_expression
+          (call_expression
+            (member_expression
+              (member_expression
+                (member_expression
+                  (member_expression
+                    (self_expression)
+                    (identifier))
+                  (identifier))
+                (identifier))
+              (identifier))
+            (argument_list
+              (number)))
+          (identifier)))
+      (expression_statement
+        (prompt_block
+          (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_interpolation
+              (member_expression
+                (identifier)
+                (identifier)))
+            (prompt_text)
+            (prompt_end))))
+      (return_statement
+        (identifier))))
+  (worker_declaration
+    (identifier)
+    (parameter_list)
+    (block
+      (var_declaration
+        (identifier)
+        (member_expression
+          (call_expression
+            (member_expression
+              (member_expression
+                (member_expression
+                  (member_expression
+                    (self_expression)
+                    (identifier))
+                  (identifier))
+                (identifier))
+              (identifier))
+            (argument_list
+              (number)))
+          (identifier)))
+      (var_declaration
+        (identifier)
+        (shell_command_expression
+          (shell_inner_text)))
+      (var_declaration
+        (identifier)
+        (object_literal
+          (object_field
+            (object_key
+              (identifier))
+            (member_expression
+              (identifier)
+              (identifier)))
+          (object_field
+            (object_key
+              (identifier))
+            (string))
+          (object_field
+            (object_key
+              (identifier))
+            (identifier))))
+      (expression_statement
+        (call_expression
+          (member_expression
+            (member_expression
+              (member_expression
+                (member_expression
+                  (self_expression)
+                  (identifier))
+                (identifier))
+              (identifier))
+            (identifier))
+          (argument_list
+            (identifier))))
+      (return_statement
+        (identifier))))
+  (worker_declaration
+    (identifier)
+    (parameter_list)
+    (block
+      (var_declaration
+        (identifier)
+        (number))
+      (while_statement
+        (parenthesized_expression
+          (binary_expression
+            (identifier)
+            (number)))
+        (block
+          (expression_statement
+            (call_expression
+              (member_expression
+                (member_expression
+                  (member_expression
+                    (member_expression
+                      (self_expression)
+                      (identifier))
+                    (identifier))
+                  (identifier))
+                (identifier))
+              (argument_list
+                (object_literal
+                  (object_field
+                    (object_key
+                      (identifier))
+                    (string))
+                  (object_field
+                    (object_key
+                      (identifier))
+                    (identifier))))))
+          (expression_statement
+            (assignment_expression
+              (identifier)
+              (binary_expression
+                (identifier)
+                (number))))))
+      (expression_statement
+        (call_expression
+          (member_expression
+            (member_expression
+              (member_expression
+                (member_expression
+                  (self_expression)
+                  (identifier))
+                (identifier))
+              (identifier))
+            (identifier))
+          (argument_list
+            (object_literal
+              (object_field
+                (object_key
+                  (identifier))
+                (string)))))))))

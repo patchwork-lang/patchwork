@@ -35,6 +35,9 @@ module.exports = grammar({
     [$.call_expression, $.member_expression],
     [$.prompt_block, $.block],
     [$.return_statement, $.prompt_block],
+    [$.object_literal, $._statement_separator],
+    [$.block, $.object_literal],
+    [$.expression, $.object_field],
   ],
 
   supertypes: ($) => [$.statement, $.expression, $.type_expression],
@@ -270,6 +273,7 @@ module.exports = grammar({
         $.prompt_block,
         $.parenthesized_expression,
         $.array_literal,
+        $.object_literal,
         $.identifier,
         $.number,
         $.string,
@@ -365,7 +369,62 @@ module.exports = grammar({
 
     parenthesized_expression: ($) => seq("(", $.expression, ")"),
 
-    array_literal: ($) => seq("[", optional(commaSep($.expression)), "]"),
+    array_literal: ($) =>
+      seq(
+        "[",
+        optional($._statement_terminator),
+        optional(
+          seq(
+            $.expression,
+            repeat(
+              seq(
+                optional($._statement_terminator),
+                ",",
+                optional($._statement_terminator),
+                $.expression,
+              ),
+            ),
+            optional($._statement_terminator),
+            optional(","),
+          ),
+        ),
+        optional($._statement_terminator),
+        "]",
+      ),
+
+    object_literal: ($) =>
+      prec.dynamic(
+        -1,
+        seq(
+          "{",
+          optional($._statement_terminator),
+          optional(
+            seq(
+              $.object_field,
+              repeat(
+                seq(
+                  optional($._statement_terminator),
+                  ",",
+                  optional($._statement_terminator),
+                  $.object_field,
+                ),
+              ),
+              optional($._statement_terminator),
+              optional(","),
+            ),
+          ),
+          optional($._statement_terminator),
+          "}",
+        ),
+      ),
+
+    object_field: ($) =>
+      choice(
+        seq(field("key", $.object_key), ":", field("value", $.expression)),
+        field("key", $.identifier),
+      ),
+
+    object_key: ($) => choice($.identifier, $.string),
 
     prompt_identifier: (_) => token(/[A-Za-z_][A-Za-z0-9_]*/),
 

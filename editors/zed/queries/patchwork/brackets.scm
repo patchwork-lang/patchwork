@@ -1,6 +1,7 @@
 ; Curly braces for blocks and trait bodies
 ((block "{" @open "}" @close))
 ((trait_body "{" @open "}" @close))
+((object_literal "{" @open "}" @close))
 
 ; Prompt delimiters
 ((prompt_body

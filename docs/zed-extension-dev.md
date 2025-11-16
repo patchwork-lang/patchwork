@@ -18,6 +18,12 @@ Corpus fixtures live under `tree-sitter/test/corpus/`. Add new cases there and r
 
 The extension files are rooted at `editors/zed/extension.toml`, `editors/zed/languages/patchwork/config.toml`, and `editors/zed/queries/patchwork/*.scm` (copied from `tree-sitter/queries/`).
 
+## Phase 5 QA Checklist
+- From `tree-sitter/`, run `npx tree-sitter generate` (if grammar changed) and `npx tree-sitter test` to validate the corpus, including the example-based fixtures in `test/corpus/examples_prompt_and_mailbox.txt`.
+- Launch `zed --extension-dev editors/zed` and smoke-test `examples/prompt-demo.pw` and `examples/mailbox-demo.pw` for highlighting, prompt interpolation/escape handling, shell injections, object literals, folding, and indentation.
+- After query changes, rerun `./scripts/sync-queries.sh` so `editors/zed/queries/patchwork/` matches `tree-sitter/queries/`.
+- When publishing, bump `version` in `editors/zed/extension.toml` and refresh README/docs with install notes.
+
 ## Packaging Notes
 - `extension.toml` currently points to the grammar on `main` at `tree-sitter/`.
 - Queries are copied into `editors/zed/queries/patchwork/`. Regenerate them after query edits with `./scripts/sync-queries.sh`.
