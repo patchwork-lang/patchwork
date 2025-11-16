@@ -1,0 +1,226 @@
+================================================================================
+Session context demo
+================================================================================
+worker session_demo() {
+    var session_id = self.session.id
+    var timestamp = self.session.timestamp
+    var work_dir = self.session.dir
+    return session_id
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    name: (identifier)
+    parameters: (parameter_list)
+    body: (block
+      (var_declaration
+        name: (identifier)
+        value: (member_expression
+          object: (member_expression
+            object: (self_expression)
+            property: (identifier))
+          property: (identifier)))
+      (var_declaration
+        name: (identifier)
+        value: (member_expression
+          object: (member_expression
+            object: (self_expression)
+            property: (identifier))
+          property: (identifier)))
+      (var_declaration
+        name: (identifier)
+        value: (member_expression
+          object: (member_expression
+            object: (self_expression)
+            property: (identifier))
+          property: (identifier)))
+      (return_statement
+        (identifier)))))
+
+================================================================================
+Mailbox send and receive
+================================================================================
+worker coordinator() {
+    self.session.mailbox.tasks.send(task)
+    var result = self.session.mailbox.results.receive(5000).await
+    return result
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    name: (identifier)
+    parameters: (parameter_list)
+    body: (block
+      (expression_statement
+        (call_expression
+          function: (member_expression
+            object: (member_expression
+              object: (member_expression
+                object: (member_expression
+                  object: (self_expression)
+                  property: (identifier))
+                property: (identifier))
+              property: (identifier))
+            property: (identifier))
+          arguments: (argument_list
+            (identifier))))
+      (var_declaration
+        name: (identifier)
+        value: (member_expression
+          object: (call_expression
+            function: (member_expression
+              object: (member_expression
+                object: (member_expression
+                  object: (member_expression
+                    object: (self_expression)
+                    property: (identifier))
+                  property: (identifier))
+                property: (identifier))
+              property: (identifier))
+            arguments: (argument_list
+              (number)))
+          property: (identifier)))
+      (return_statement
+        (identifier)))))
+
+================================================================================
+Multiple interpolations in prompt
+================================================================================
+worker prompt_demo() {
+    var user_name = "Alice"
+    var task = "review code"
+    
+    think {
+        Hello ${user_name}, please ${task} for the project.
+        The current time is ${self.session.timestamp}.
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    name: (identifier)
+    parameters: (parameter_list)
+    body: (block
+      (var_declaration
+        name: (identifier)
+        value: (string))
+      (var_declaration
+        name: (identifier)
+        value: (string))
+              (expression_statement
+            (prompt_block
+              body: (prompt_body
+                (prompt_start)
+                (prompt_text)
+                (prompt_interpolation
+                  expression: (identifier))
+                (prompt_text)
+                (prompt_interpolation
+                  expression: (identifier))
+                (prompt_text)
+                (prompt_interpolation
+                  expression: (member_expression
+                    object: (member_expression
+                      object: (self_expression)
+                      property: (identifier))
+                    property: (identifier)))
+                (prompt_text)
+                (prompt_end)))))))
+
+================================================================================
+Shell command in worker
+================================================================================
+worker shell_demo() {
+    $ echo "Starting test plugin..."
+    var output = $(cat file.txt)
+    return output
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    name: (identifier)
+    parameters: (parameter_list)
+    body: (block
+      (shell_command_statement
+        command: (shell_text))
+      (var_declaration
+        name: (identifier)
+        value: (shell_command_expression
+          command: (shell_inner_text)))
+      (return_statement
+        (identifier)))))
+
+================================================================================
+Array literal and while loop
+================================================================================
+worker multi_message_demo() {
+    var i = 0
+    while (i < 3) {
+        self.session.mailbox.events.send([1, 2, 3])
+        i = i + 1
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    name: (identifier)
+    parameters: (parameter_list)
+    body: (block
+      (var_declaration
+        name: (identifier)
+        value: (number))
+      (while_statement
+        condition: (parenthesized_expression
+          (binary_expression
+            left: (identifier)
+            right: (number)))
+        body: (block
+          (expression_statement
+            (call_expression
+              function: (member_expression
+                object: (member_expression
+                  object: (member_expression
+                    object: (member_expression
+                      object: (self_expression)
+                      property: (identifier))
+                    property: (identifier))
+                  property: (identifier))
+                property: (identifier))
+              arguments: (argument_list
+                (array_literal
+                  (number)
+                  (number)
+                  (number)))))
+          (expression_statement
+            (assignment_expression
+              left: (identifier)
+              right: (binary_expression
+                left: (identifier)
+                right: (number)))))))))
+
+================================================================================
+Import statement
+================================================================================
+import { helper } from "helper.pw"
+import analyzer from "./analyzer.pw"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    clause: (destructuring_pattern
+      (identifier))
+    source: (string))
+  (import_statement
+    clause: (identifier)
+    source: (string)))

@@ -1,0 +1,31 @@
+name = "Patchwork"
+grammar = "patchwork"
+path_suffixes = ["pw"]
+line_comments = ["# "]
+tab_size = 4
+hard_tabs = false
+
+# Bracket pairs for auto-closing
+[[brackets]]
+start = "{"
+end = "}"
+close = true
+newline = true
+
+[[brackets]]
+start = "["
+end = "]"
+close = true
+newline = false
+
+[[brackets]]
+start = "("
+end = ")"
+close = true
+newline = false
+
+[[brackets]]
+start = "\""
+end = "\""
+close = true
+newline = false

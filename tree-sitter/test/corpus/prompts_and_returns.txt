@@ -1,0 +1,40 @@
+
+================================================================================
+Simple think prompt
+================================================================================
+think {
+    Hello world
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (prompt_block
+      (prompt_body
+        (prompt_start)
+        (prompt_text)
+        (prompt_end)))))
+
+================================================================================
+Return inline prompt
+================================================================================
+fun inline_return() {
+    return think {
+        Inline response
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (identifier)
+    parameters: (parameter_list)
+    body: (block
+      (return_statement
+        (prompt_block
+          body: (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_end)))))))

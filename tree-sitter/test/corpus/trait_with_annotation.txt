@@ -1,0 +1,40 @@
+================================================================================
+Trait with annotation and delegate call
+================================================================================
+export trait SimpleTest: Agent {
+    @skill test
+    fun test(name: string) {
+        self.delegate([test_worker(name)]).await
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_declaration
+    name: (identifier)
+    base: (identifier)
+    body: (trait_body
+      (annotation
+        name: (identifier)
+        argument: (identifier))
+      (function_declaration
+        name: (identifier)
+        parameters: (parameter_list
+          (parameter
+            name: (identifier)
+            type: (identifier)))
+        body: (block
+          (expression_statement
+            (member_expression
+              object: (call_expression
+                function: (member_expression
+                  object: (self_expression)
+                  property: (identifier))
+                arguments: (argument_list
+                  (array_literal
+                    (call_expression
+                      function: (identifier)
+                      arguments: (argument_list
+                        (identifier))))))
+              property: (identifier))))))))

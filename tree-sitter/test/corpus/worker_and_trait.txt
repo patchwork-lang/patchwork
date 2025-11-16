@@ -1,0 +1,53 @@
+================================================================================
+Worker with shell and prompt
+================================================================================
+worker test_worker(name: string) {
+    var greeting = "Hello"
+    var timestamp = self.session.timestamp
+
+    $ echo "Starting test plugin..."
+
+    think {
+        Testing the Patchwork compiler with user ${name}.
+        Session started at ${timestamp}.
+        Please respond with: "Test successful for ${name}"
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (worker_declaration
+    name: (identifier)
+    parameters: (parameter_list
+      (parameter
+        name: (identifier)
+        type: (identifier)))
+    body: (block
+      (var_declaration
+        name: (identifier)
+        value: (string))
+      (var_declaration
+        name: (identifier)
+        value: (member_expression
+          object: (member_expression
+            object: (self_expression)
+            property: (identifier))
+          property: (identifier)))
+      (shell_command_statement
+        command: (shell_text))
+      (expression_statement
+        (prompt_block
+          body: (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_interpolation
+              expression: (identifier))
+            (prompt_text)
+            (prompt_interpolation
+              expression: (identifier))
+            (prompt_text)
+            (prompt_interpolation
+              expression: (identifier))
+            (prompt_text)
+            (prompt_end)))))))
