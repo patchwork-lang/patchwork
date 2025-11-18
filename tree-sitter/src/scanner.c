@@ -188,37 +188,41 @@ static bool scan_prompt_do(Scanner *scanner, TSLexer *lexer) {
     return false;
   }
 
-  // Skip leading horizontal whitespace inside the prompt body.
-  while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
-         lexer->lookahead == '\f') {
-    lexer->advance(lexer, true);
-  }
-
+  // Only consider PROMPT_DO if the next character is 'd'
   if (lexer->lookahead != 'd') {
     return false;
   }
 
-  lexer->advance(lexer, false);
+  // Consume a candidate "do" sequence; if validation fails, emit it as prompt_text.
+  lexer->advance(lexer, false);  // 'd'
+  lexer->mark_end(lexer);
+
   if (lexer->lookahead != 'o') {
-    return false;
+    lexer->result_symbol = PROMPT_TEXT;
+    return true;
   }
 
-  lexer->advance(lexer, false);
+  lexer->advance(lexer, false);  // 'o'
   lexer->mark_end(lexer);
 
   if (is_identifier_continue(lexer->lookahead)) {
-    return false;
+    lexer->result_symbol = PROMPT_TEXT;
+    return true;
   }
 
+  // Skip whitespace (including newlines) before the brace
   while (is_whitespace(lexer->lookahead)) {
     lexer->advance(lexer, true);
+    lexer->mark_end(lexer);
   }
 
-  if (lexer->lookahead != '{') {
-    return false;
+  if (lexer->lookahead == '{') {
+    lexer->result_symbol = PROMPT_DO;
+    return true;
   }
 
-  lexer->result_symbol = PROMPT_DO;
+  // Fallback: treat the consumed characters as prompt_text
+  lexer->result_symbol = PROMPT_TEXT;
   return true;
 }
 
