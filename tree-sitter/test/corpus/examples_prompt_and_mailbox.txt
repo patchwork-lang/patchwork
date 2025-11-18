@@ -69,11 +69,26 @@ worker simple_greeting() {
           (prompt_body
             (prompt_start)
             (prompt_text)
-            (prompt_interpolation
-              (identifier))
+            (prompt_text)
             (prompt_text)
             (prompt_interpolation
               (identifier))
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
             (prompt_text)
             (prompt_end))))
       (var_declaration
@@ -82,6 +97,18 @@ worker simple_greeting() {
           (prompt_body
             (prompt_start)
             (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
             (prompt_end))))
       (var_declaration
         (identifier)
@@ -89,11 +116,20 @@ worker simple_greeting() {
           (prompt_body
             (prompt_start)
             (prompt_text)
-            (prompt_interpolation
-              (identifier))
+            (prompt_text)
             (prompt_text)
             (prompt_interpolation
               (identifier))
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_interpolation
+              (identifier))
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
             (prompt_text)
             (prompt_end))))
       (return_statement
@@ -111,8 +147,11 @@ worker simple_greeting() {
           (prompt_body
             (prompt_start)
             (prompt_text)
+            (prompt_text)
+            (prompt_text)
             (prompt_interpolation
               (identifier))
+            (prompt_text)
             (prompt_text)
             (prompt_end))))
       (var_declaration
@@ -120,6 +159,9 @@ worker simple_greeting() {
         (prompt_block
           (prompt_body
             (prompt_start)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
             (prompt_text)
             (prompt_end))))
       (return_statement
@@ -237,10 +279,13 @@ worker multi_message_demo() {
           (prompt_body
             (prompt_start)
             (prompt_text)
+            (prompt_text)
+            (prompt_text)
             (prompt_interpolation
               (member_expression
                 (identifier)
                 (identifier)))
+            (prompt_text)
             (prompt_text)
             (prompt_end))))
       (return_statement

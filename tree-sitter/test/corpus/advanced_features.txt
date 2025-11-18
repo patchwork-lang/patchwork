@@ -113,25 +113,30 @@ worker prompt_demo() {
       (var_declaration
         name: (identifier)
         value: (string))
-              (expression_statement
-            (prompt_block
-              body: (prompt_body
-                (prompt_start)
-                (prompt_text)
-                (prompt_interpolation
-                  expression: (identifier))
-                (prompt_text)
-                (prompt_interpolation
-                  expression: (identifier))
-                (prompt_text)
-                (prompt_interpolation
-                  expression: (member_expression
-                    object: (member_expression
-                      object: (self_expression)
-                      property: (identifier))
-                    property: (identifier)))
-                (prompt_text)
-                (prompt_end)))))))
+      (expression_statement
+        (prompt_block
+          body: (prompt_body
+            (prompt_start)
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_interpolation
+              expression: (identifier))
+            (prompt_text)
+            (prompt_interpolation
+              expression: (identifier))
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_interpolation
+              expression: (member_expression
+                object: (member_expression
+                  object: (self_expression)
+                  property: (identifier))
+                property: (identifier)))
+            (prompt_text)
+            (prompt_text)
+            (prompt_end)))))))
 
 ================================================================================
 Shell command in worker

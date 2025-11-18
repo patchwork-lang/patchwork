@@ -1,0 +1,59 @@
+================================================================================
+Prompt do block transitions
+================================================================================
+think {
+    Start of prompt.
+    do {
+        var x = 1
+    }
+    Back to prompt.
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (prompt_block
+      body: (prompt_body
+        (prompt_start)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_do_block
+          (prompt_do)
+          (block
+            (var_declaration
+              name: (identifier)
+              value: (number))))
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_end)))))
+
+================================================================================
+Non-leading do stays text
+================================================================================
+think {
+    please do { nothing }
+    do
+    {
+        still prompt
+    }
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (prompt_block
+      body: (prompt_body
+        (prompt_start)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_text)
+        (prompt_end)))))

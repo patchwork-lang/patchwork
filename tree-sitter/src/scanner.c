@@ -30,11 +30,13 @@ typedef struct {
   uint16_t prompt_depths[PROMPT_STACK_CAPACITY];
   uint8_t prompt_depth_count;
   uint8_t interpolation_depth;
+  bool at_line_start;
 } Scanner;
 
 static inline void reset_state(Scanner *scanner) {
   scanner->prompt_depth_count = 0;
   scanner->interpolation_depth = 0;
+  scanner->at_line_start = true;
 }
 
 static inline uint16_t *current_prompt_depth(Scanner *scanner) {
@@ -48,6 +50,7 @@ static inline void push_prompt(Scanner *scanner) {
   if (scanner->prompt_depth_count < PROMPT_STACK_CAPACITY) {
     scanner->prompt_depths[scanner->prompt_depth_count++] = 1;
   }
+  scanner->at_line_start = true;
 }
 
 static inline void pop_prompt(Scanner *scanner) {
@@ -65,10 +68,6 @@ static inline bool is_identifier_continue(int32_t c) {
 }
 
 static bool scan_statement_terminator(Scanner *scanner, TSLexer *lexer) {
-  if (scanner->prompt_depth_count > 0) {
-    return false;
-  }
-
   bool saw_newline = false;
   while (true) {
     if (lexer->lookahead == '\r') {
@@ -151,6 +150,7 @@ static bool scan_prompt_escape(Scanner *scanner, TSLexer *lexer) {
   lexer->advance(lexer, false);
   lexer->mark_end(lexer);
   lexer->result_symbol = PROMPT_ESCAPE;
+  scanner->at_line_start = false;
   return true;
 }
 
@@ -168,6 +168,7 @@ static bool scan_prompt_interpolation_start(Scanner *scanner, TSLexer *lexer) {
   lexer->mark_end(lexer);
   scanner->interpolation_depth++;
   lexer->result_symbol = PROMPT_INTERPOLATION_START;
+  scanner->at_line_start = false;
   return true;
 }
 
@@ -180,48 +181,85 @@ static bool scan_prompt_interpolation_end(Scanner *scanner, TSLexer *lexer) {
   lexer->advance(lexer, false);
   lexer->mark_end(lexer);
   lexer->result_symbol = PROMPT_INTERPOLATION_END;
+  scanner->at_line_start = false;
   return true;
 }
 
 static bool scan_prompt_do(Scanner *scanner, TSLexer *lexer) {
-  if (scanner->prompt_depth_count == 0) {
+  if (scanner->prompt_depth_count == 0 || !scanner->at_line_start) {
     return false;
   }
 
-  // Only consider PROMPT_DO if the next character is 'd'
+  lexer->mark_end(lexer);
+
+  // Allow indentation at the start of the line; if the first non-space isn't
+  // 'd', leave the rest of the line to other tokens.
+  bool saw_indentation = false;
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+    lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+    saw_indentation = true;
+  }
+
   if (lexer->lookahead != 'd') {
+    if (saw_indentation) {
+      lexer->result_symbol = PROMPT_TEXT;
+      scanner->at_line_start = true;
+      return true;
+    }
     return false;
   }
 
-  // Consume a candidate "do" sequence; if validation fails, emit it as prompt_text.
+  // Consume a candidate "do" sequence; if validation fails, emit the whole line
+  // as prompt_text.
   lexer->advance(lexer, false);  // 'd'
   lexer->mark_end(lexer);
 
   if (lexer->lookahead != 'o') {
-    lexer->result_symbol = PROMPT_TEXT;
-    return true;
+    goto emit_line_as_text;
   }
 
   lexer->advance(lexer, false);  // 'o'
   lexer->mark_end(lexer);
 
   if (is_identifier_continue(lexer->lookahead)) {
-    lexer->result_symbol = PROMPT_TEXT;
-    return true;
+    goto emit_line_as_text;
   }
 
-  // Skip whitespace (including newlines) before the brace
-  while (is_whitespace(lexer->lookahead)) {
-    lexer->advance(lexer, true);
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+    lexer->advance(lexer, false);
     lexer->mark_end(lexer);
   }
 
   if (lexer->lookahead == '{') {
     lexer->result_symbol = PROMPT_DO;
+    scanner->at_line_start = false;
     return true;
   }
 
-  // Fallback: treat the consumed characters as prompt_text
+emit_line_as_text:
+  while (lexer->lookahead && lexer->lookahead != '\n' &&
+         lexer->lookahead != '\r') {
+    lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+  }
+
+  if (lexer->lookahead == '\r') {
+    lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+    if (lexer->lookahead == '\n') {
+      lexer->advance(lexer, false);
+      lexer->mark_end(lexer);
+    }
+    scanner->at_line_start = true;
+  } else if (lexer->lookahead == '\n') {
+    lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+    scanner->at_line_start = true;
+  } else {
+    scanner->at_line_start = false;
+  }
+
   lexer->result_symbol = PROMPT_TEXT;
   return true;
 }
@@ -245,9 +283,40 @@ static bool scan_prompt_text(Scanner *scanner, TSLexer *lexer) {
       break;
     }
 
-    if (c == '$' || c == '}') {
-      DEBUG_LOG("prompt_text stop char=%d depth=%u\n", c, *depth);
+    if (c == '\n' || c == '\r') {
+      lexer->advance(lexer, false);
+      if (c == '\r' && lexer->lookahead == '\n') {
+        lexer->advance(lexer, false);
+      }
+      lexer->mark_end(lexer);
+      has_content = true;
+      scanner->at_line_start = true;
       break;
+    }
+
+    if (c == ' ' || c == '\t') {
+      lexer->advance(lexer, false);
+      lexer->mark_end(lexer);
+      has_content = true;
+      continue;
+    }
+
+    if (c == '$') {
+      DEBUG_LOG("prompt_text stop char=$ depth=%u\n", *depth);
+      break;
+    }
+
+    if (c == '}') {
+      if (*depth == 1) {
+        DEBUG_LOG("prompt_text stop char=} depth=%u\n", *depth);
+        break;
+      }
+      (*depth)--;
+      lexer->advance(lexer, false);
+      lexer->mark_end(lexer);
+      has_content = true;
+      scanner->at_line_start = false;
+      continue;
     }
 
     if (c == '{') {
@@ -255,20 +324,14 @@ static bool scan_prompt_text(Scanner *scanner, TSLexer *lexer) {
       lexer->advance(lexer, false);
       lexer->mark_end(lexer);
       has_content = true;
-      continue;
-    }
-
-    if (c == '}' && *depth > 1) {
-      (*depth)--;
-      lexer->advance(lexer, false);
-      lexer->mark_end(lexer);
-      has_content = true;
+      scanner->at_line_start = false;
       continue;
     }
 
     lexer->advance(lexer, false);
     lexer->mark_end(lexer);
     has_content = true;
+    scanner->at_line_start = false;
   }
 
   if (has_content) {
@@ -309,6 +372,7 @@ unsigned tree_sitter_patchwork_external_scanner_serialize(
   unsigned size = 0;
   buffer[size++] = (char)scanner->prompt_depth_count;
   buffer[size++] = (char)scanner->interpolation_depth;
+  buffer[size++] = (char)scanner->at_line_start;
   for (uint8_t i = 0; i < scanner->prompt_depth_count; i++) {
     uint16_t depth = scanner->prompt_depths[i];
     buffer[size++] = (char)(depth & 0xFFu);
@@ -332,6 +396,9 @@ void tree_sitter_patchwork_external_scanner_deserialize(
   unsigned cursor = 1;
   if (cursor < length) {
     scanner->interpolation_depth = (uint8_t)buffer[cursor++];
+  }
+  if (cursor < length) {
+    scanner->at_line_start = buffer[cursor++] != 0;
   }
   for (uint8_t i = 0; i < scanner->prompt_depth_count; i++) {
     if (cursor + 1 >= length) {

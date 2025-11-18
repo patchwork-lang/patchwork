@@ -52,7 +52,16 @@
 - [x] Register `[language_servers.patchwork]` in `extension.toml` with `languages = ["Patchwork"]` and implement `language_server_command` in the Rust extension harness.
 - [x] Map any custom `language_ids` and test completions/diagnostics formatting within Zed.
 
-## Phase 5: QA & Release
+## Phase 5: Prompt Do-Block Robustness
+
+**Goal:** Stabilize prompt `do { … }` handling with line-oriented prompt tokens and eliminate scanner lookahead fragility.
+
+- [x] Design the line-oriented prompt tokenization (prompt_text stops at newlines; `do {` only recognized at line start with indent on same line).
+- [x] Implement scanner state for `at_line_start` and emit `PROMPT_DO` only on confirmed `do {` at line start; otherwise emit the whole line as prompt_text.
+- [x] Update grammar and Tree-sitter corpus fixtures to accept multiple prompt_text nodes (per line) and the new prompt do-block tokenization.
+- [x] Re-sync queries/injections if needed and validate highlighting/injections in Zed; pin `extension.toml` to the new rev and document the dev/prod toggle.
+
+## Phase 6: QA & Release
 
 **Goal:** Validate the full experience and publish the extension.
 

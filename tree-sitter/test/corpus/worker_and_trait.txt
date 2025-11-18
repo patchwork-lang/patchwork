@@ -41,13 +41,20 @@ worker test_worker(name: string) {
           body: (prompt_body
             (prompt_start)
             (prompt_text)
-            (prompt_interpolation
-              expression: (identifier))
+            (prompt_text)
             (prompt_text)
             (prompt_interpolation
               expression: (identifier))
             (prompt_text)
+            (prompt_text)
+            (prompt_text)
             (prompt_interpolation
               expression: (identifier))
+            (prompt_text)
+            (prompt_text)
+            (prompt_text)
+            (prompt_interpolation
+              expression: (identifier))
+            (prompt_text)
             (prompt_text)
             (prompt_end)))))))
