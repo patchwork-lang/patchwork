@@ -7,13 +7,14 @@ authors = ["David Herman <david.herman@gmail.com>"]
 repository = "https://github.com/dherman/patchwork"
 
 [grammars.patchwork]
-repository = "file:///Users/dherman/Code/patchwork"
-rev = "HEAD"
-path = "tree-sitter"
-# Production (flip these on when shipping)
-# repository = "https://github.com/dherman/patchwork"
-# rev = "main"
+# Development (uncomment when iterating locally)
+# repository = "file:///Users/dherman/Code/patchwork"
+# rev = "HEAD"
 # path = "tree-sitter"
+# Production
+repository = "https://github.com/dherman/patchwork"
+rev = "main"
+path = "tree-sitter"
 
 [language_servers.patchwork]
 languages = ["Patchwork"]
