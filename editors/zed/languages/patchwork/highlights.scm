@@ -19,6 +19,7 @@
   "import"
   "from"
   "export"
+  "default"
   "think"
   "ask"
 ] @keyword

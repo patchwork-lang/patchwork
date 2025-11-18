@@ -1433,6 +1433,10 @@
     "named": false
   },
   {
+    "type": "default",
+    "named": false
+  },
+  {
     "type": "else",
     "named": false
   },

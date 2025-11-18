@@ -61,6 +61,7 @@ module.exports = grammar({
       seq(
         repeat($.annotation),
         optional("export"),
+        optional("default"),
         choice($._declaration, $.statement),
       ),
 
@@ -259,7 +260,7 @@ module.exports = grammar({
 
     shell_command_statement: ($) => seq("$", field("command", $.shell_text)),
 
-    shell_text: (_) => token.immediate(/[^\n{}]+/),
+    shell_text: (_) => token.immediate(/[^\n]+/),
 
     expression: ($) =>
       choice(

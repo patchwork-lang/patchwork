@@ -89,6 +89,18 @@
           "type": "CHOICE",
           "members": [
             {
+              "type": "STRING",
+              "value": "default"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
               "type": "SYMBOL",
               "name": "_declaration"
             },
@@ -1115,7 +1127,7 @@
       "type": "IMMEDIATE_TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "[^\\n{}]+"
+        "value": "[^\\n]+"
       }
     },
     "expression": {
