@@ -589,7 +589,7 @@ let stdinReader = null;
  *
  * @returns {StdinReader} - The global stdin reader instance
  */
-function getStdinReader() {
+export function getStdinReader() {
   if (!stdinReader) {
     stdinReader = new StdinReader();
   }
