@@ -9,6 +9,7 @@
   "if"
   "else"
   "for"
+  "in"
   "while"
   "await"
   "return"

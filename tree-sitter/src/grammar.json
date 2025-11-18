@@ -1,4 +1,5 @@
 {
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
   "name": "patchwork",
   "rules": {
     "source_file": {
@@ -952,12 +953,54 @@
           "value": "for"
         },
         {
-          "type": "FIELD",
-          "name": "initializer",
-          "content": {
-            "type": "SYMBOL",
-            "name": "parenthesized_expression"
-          }
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "var"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                },
+                {
+                  "type": "FIELD",
+                  "name": "iterator",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  }
+                },
+                {
+                  "type": "STRING",
+                  "value": "in"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "iterable",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "expression"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "FIELD",
+              "name": "initializer",
+              "content": {
+                "type": "SYMBOL",
+                "name": "parenthesized_expression"
+              }
+            }
+          ]
         },
         {
           "type": "FIELD",
@@ -1457,6 +1500,39 @@
                 "type": "FIELD",
                 "name": "operator",
                 "content": {
+                  "type": "STRING",
+                  "value": "..."
+                }
+              },
+              {
+                "type": "FIELD",
+                "name": "right",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "expression"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "PREC_LEFT",
+          "value": 8,
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "left",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "expression"
+                }
+              },
+              {
+                "type": "FIELD",
+                "name": "operator",
+                "content": {
                   "type": "CHOICE",
                   "members": [
                     {
@@ -1483,7 +1559,7 @@
         },
         {
           "type": "PREC_LEFT",
-          "value": 8,
+          "value": 9,
           "content": {
             "type": "SEQ",
             "members": [
@@ -1531,7 +1607,7 @@
     },
     "unary_expression": {
       "type": "PREC_RIGHT",
-      "value": 9,
+      "value": 10,
       "content": {
         "type": "SEQ",
         "members": [
@@ -1565,7 +1641,7 @@
     },
     "call_expression": {
       "type": "PREC",
-      "value": 10,
+      "value": 11,
       "content": {
         "type": "SEQ",
         "members": [
@@ -1590,7 +1666,7 @@
     },
     "member_expression": {
       "type": "PREC",
-      "value": 11,
+      "value": 12,
       "content": {
         "type": "SEQ",
         "members": [
@@ -2450,5 +2526,6 @@
     "statement",
     "expression",
     "type_expression"
-  ]
+  ],
+  "reserved": {}
 }

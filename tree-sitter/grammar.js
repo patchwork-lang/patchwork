@@ -8,11 +8,12 @@ const PREC = {
   logical_and: 4,
   equality: 5,
   relational: 6,
-  additive: 7,
-  multiplicative: 8,
-  unary: 9,
-  call: 10,
-  member: 11,
+  range: 7,
+  additive: 8,
+  multiplicative: 9,
+  unary: 10,
+  call: 11,
+  member: 12,
 };
 
 module.exports = grammar({
@@ -223,7 +224,15 @@ module.exports = grammar({
     for_statement: ($) =>
       seq(
         "for",
-        field("initializer", $.parenthesized_expression),
+        choice(
+          seq(
+            optional("var"),
+            field("iterator", $.identifier),
+            "in",
+            field("iterable", $.expression),
+          ),
+          field("initializer", $.parenthesized_expression),
+        ),
         field("body", $.block),
       ),
 
@@ -305,6 +314,7 @@ module.exports = grammar({
         [PREC.logical_and, "&&"],
         [PREC.equality, choice("==", "!=")],
         [PREC.relational, choice("<", "<=", ">", ">=")],
+        [PREC.range, "..."],
         [PREC.additive, choice("+", "-")],
         [PREC.multiplicative, choice("*", "/", "%")],
       ];

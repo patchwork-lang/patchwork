@@ -285,6 +285,10 @@
             "named": false
           },
           {
+            "type": "...",
+            "named": false
+          },
+          {
             "type": "/",
             "named": false
           },
@@ -467,10 +471,30 @@
       },
       "initializer": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "parenthesized_expression",
+            "named": true
+          }
+        ]
+      },
+      "iterable": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "iterator": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
             "named": true
           }
         ]
@@ -567,11 +591,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "identifier",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "if_statement",
@@ -1011,6 +1030,7 @@
   {
     "type": "source_file",
     "named": true,
+    "root": true,
     "fields": {},
     "children": {
       "multiple": true,
@@ -1365,6 +1385,10 @@
     "named": false
   },
   {
+    "type": "...",
+    "named": false
+  },
+  {
     "type": "/",
     "named": false
   },
@@ -1426,7 +1450,8 @@
   },
   {
     "type": "comment",
-    "named": true
+    "named": true,
+    "extra": true
   },
   {
     "type": "continue",
@@ -1465,11 +1490,19 @@
     "named": false
   },
   {
+    "type": "identifier",
+    "named": true
+  },
+  {
     "type": "if",
     "named": false
   },
   {
     "type": "import",
+    "named": false
+  },
+  {
+    "type": "in",
     "named": false
   },
   {
