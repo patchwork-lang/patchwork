@@ -65,7 +65,7 @@
 
 **Goal:** Validate the full experience and publish the extension.
 
-- [ ] Manually verify highlighting, folding, outline, prompt/markdown embedding, and shell injections against the sample programs in `examples/` and `test/`.
+- [x] Manually verify highlighting, folding, outline, prompt/markdown embedding, and shell injections against the sample programs in `examples/` and `test/`.
 - [x] Add automated regression coverage (Tree-sitter corpus tests, optional screenshot/highlight tests) to guard against grammar drift.
-- [ ] Package the extension, update repo documentation (README + docs/), and share install instructions for contributors.
-- [ ] Track follow-up improvements (debuggers, runnables, redactions, language server enhancements) in this plan or GitHub issues.
+- [x] Package the extension, update repo documentation (README + docs/), and share install instructions for contributors.
+- [x] Track follow-up improvements (debuggers, runnables, redactions, language server enhancements) in this plan or GitHub issues.
