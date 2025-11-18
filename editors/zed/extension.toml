@@ -14,4 +14,3 @@ path = "tree-sitter"
 [language_servers.patchwork]
 languages = ["Patchwork"]
 command = "patchwork-lsp"
-language_ids = ["patchwork"]
