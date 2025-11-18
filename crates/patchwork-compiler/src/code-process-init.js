@@ -26,7 +26,7 @@
  */
 
 import { SessionContext } from './patchwork-runtime.js';
-import { readFileSync } from 'fs';
+import { createInterface } from 'readline';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -68,10 +68,28 @@ async function readSessionContext(sessionJson) {
       process.exit(1);
     }
   } else {
-    // Read session from stdin (blocking read)
+    // Read first line from stdin asynchronously
+    // This allows stdin to remain open for bidirectional IPC
     try {
-      const stdinBuffer = readFileSync(0, 'utf-8');  // Read from file descriptor 0 (stdin)
-      sessionData = JSON.parse(stdinBuffer);
+      const rl = createInterface({
+        input: process.stdin,
+        crlfDelay: Infinity
+      });
+
+      // Read exactly one line and close the readline interface
+      sessionData = await new Promise((resolve, reject) => {
+        rl.once('line', (line) => {
+          try {
+            const data = JSON.parse(line);
+            rl.close();
+            resolve(data);
+          } catch (err) {
+            reject(err);
+          }
+        });
+
+        rl.once('error', reject);
+      });
     } catch (err) {
       console.error('[Code Process] Failed to read session JSON from stdin:', err);
       process.exit(1);

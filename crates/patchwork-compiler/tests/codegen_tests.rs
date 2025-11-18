@@ -144,7 +144,7 @@ worker pipe_test() {
 "#;
 
     let js = compile_source(source).expect("compilation failed");
-    assert!(js.contains("await shellPipe"));
+    assert!(js.contains("await $shellPipe"));
 }
 
 #[test]
@@ -156,7 +156,7 @@ worker and_test() {
 "#;
 
     let js = compile_source(source).expect("compilation failed");
-    assert!(js.contains("await shellAnd"));
+    assert!(js.contains("await $shellAnd"));
 }
 
 #[test]
@@ -376,7 +376,7 @@ worker example() {
     let js = compile_source(source).expect("compilation failed");
 
     // Check runtime imports are included (includes shell, SessionContext, executePrompt, and delegate)
-    assert!(js.contains("import { shell, shellPipe, shellAnd, shellOr, shellRedirect, SessionContext, executePrompt, delegate"));
+    assert!(js.contains("import { shell, $shellPipe, $shellAnd, $shellOr, $shellRedirect, SessionContext, executePrompt, delegate"));
 
     // Check worker receives session parameter and is async
     assert!(js.contains("export async function example(session)"));
@@ -644,7 +644,7 @@ worker example() {
     // Verify runtime includes executePrompt function
     assert!(output.runtime.contains("export async function executePrompt"),
             "Runtime should export executePrompt function");
-    assert!(output.javascript.contains("import { shell, shellPipe, shellAnd, shellOr, shellRedirect, SessionContext, executePrompt, delegate"),
+    assert!(output.javascript.contains("import { shell, $shellPipe, $shellAnd, $shellOr, $shellRedirect, SessionContext, executePrompt, delegate"),
             "Generated code should import all runtime functions");
 }
 
@@ -939,7 +939,7 @@ worker test() {
     let js = compile_source(source).expect("compilation failed");
 
     // Verify pipe uses shellPipe with array of commands
-    assert!(js.contains("await shellPipe(["));
+    assert!(js.contains("await $shellPipe(["));
 }
 
 #[test]
@@ -953,7 +953,7 @@ worker test() {
     let js = compile_source(source).expect("compilation failed");
 
     // Verify && uses shellAnd
-    assert!(js.contains("await shellAnd(["));
+    assert!(js.contains("await $shellAnd(["));
 }
 
 #[test]
@@ -967,7 +967,7 @@ worker test() {
     let js = compile_source(source).expect("compilation failed");
 
     // Verify || uses shellOr
-    assert!(js.contains("await shellOr(["));
+    assert!(js.contains("await $shellOr(["));
 }
 
 #[test]
@@ -981,7 +981,7 @@ worker test(file) {
     let js = compile_source(source).expect("compilation failed");
 
     // Verify redirection uses shellRedirect
-    assert!(js.contains("await shellRedirect("));
+    assert!(js.contains("await $shellRedirect("));
     assert!(js.contains("'>'"));
 }
 

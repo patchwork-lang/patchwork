@@ -110,7 +110,7 @@ impl CodeGenerator {
         // Import runtime primitives from the bundled runtime file
         let runtime_path = crate::runtime::get_runtime_module_name();
         self.output.push_str("// Patchwork runtime imports\n");
-        write!(self.output, "import {{ shell, shellPipe, shellAnd, shellOr, shellRedirect, SessionContext, executePrompt, delegate, log }} from '{}';\n\n", runtime_path).unwrap();
+        write!(self.output, "import {{ shell, $shellPipe, $shellAnd, $shellOr, $shellRedirect, SessionContext, executePrompt, delegate, log }} from '{}';\n\n", runtime_path).unwrap();
     }
 
     /// Generate import statement
@@ -872,8 +872,8 @@ impl CodeGenerator {
 
     /// Generate shell pipe
     fn generate_shell_pipe(&mut self, left: &Expr, right: &Expr) -> Result<()> {
-        // cmd1 | cmd2 → await shellPipe([cmd1, cmd2])
-        self.output.push_str("await shellPipe([");
+        // cmd1 | cmd2 → await $shellPipe([cmd1, cmd2])
+        self.output.push_str("await $shellPipe([");
         self.generate_shell_expr_for_pipe(left)?;
         self.output.push_str(", ");
         self.generate_shell_expr_for_pipe(right)?;
@@ -883,8 +883,8 @@ impl CodeGenerator {
 
     /// Generate shell && operator
     fn generate_shell_and(&mut self, left: &Expr, right: &Expr) -> Result<()> {
-        // cmd1 && cmd2 → await shellAnd([cmd1, cmd2])
-        self.output.push_str("await shellAnd([");
+        // cmd1 && cmd2 → await $shellAnd([cmd1, cmd2])
+        self.output.push_str("await $shellAnd([");
         self.generate_shell_expr_for_pipe(left)?;
         self.output.push_str(", ");
         self.generate_shell_expr_for_pipe(right)?;
@@ -894,8 +894,8 @@ impl CodeGenerator {
 
     /// Generate shell || operator
     fn generate_shell_or(&mut self, left: &Expr, right: &Expr) -> Result<()> {
-        // cmd1 || cmd2 → await shellOr([cmd1, cmd2])
-        self.output.push_str("await shellOr([");
+        // cmd1 || cmd2 → await $shellOr([cmd1, cmd2])
+        self.output.push_str("await $shellOr([");
         self.generate_shell_expr_for_pipe(left)?;
         self.output.push_str(", ");
         self.generate_shell_expr_for_pipe(right)?;
@@ -905,8 +905,8 @@ impl CodeGenerator {
 
     /// Generate shell redirect
     fn generate_shell_redirect(&mut self, command: &Expr, op: &RedirectOp, target: &Expr) -> Result<()> {
-        // cmd > file → await shellRedirect(cmd, '>', file)
-        self.output.push_str("await shellRedirect(");
+        // cmd > file → await $shellRedirect(cmd, '>', file)
+        self.output.push_str("await $shellRedirect(");
         self.generate_shell_expr_for_pipe(command)?;
         self.output.push_str(", '");
         let op_str = match op {
