@@ -48,10 +48,19 @@ pub fn extract_prompt_template(
     let mut markdown = String::new();
     let mut required_bindings = HashSet::new();
 
-    for item in &block.items {
+    for (idx, item) in block.items.iter().enumerate() {
         match item {
             PromptItem::Text(text) => {
                 // Plain text goes directly into markdown
+                // But check if we need to prepend a space after an interpolation
+                if idx > 0 {
+                    if let PromptItem::Interpolation(_) = &block.items[idx - 1] {
+                        // Previous item was interpolation - check if text starts with non-whitespace
+                        if !text.is_empty() && !text.starts_with(char::is_whitespace) {
+                            markdown.push(' ');
+                        }
+                    }
+                }
                 markdown.push_str(text);
             }
             PromptItem::Interpolation(expr) => {
