@@ -1,62 +1,56 @@
 {
-  "session_type": "patchwork_phase12_runtime_testing",
+  "session_type": "patchwork_integration_testing",
   "workspace": "/Users/dherman/Code/patchwork",
-  "phase": "Phase 12: Runtime Testing and Validation",
-  "completion": "~70%",
+  "phase": "Integration Testing Framework",
+  "completion": "100%",
   
   "session_goals": [
-    "Validate compiled plugins execute correctly in Claude Code runtime",
-    "Test bidirectional IPC between prompt and code processes",
-    "Create end-to-end working plugin examples"
+    "Create automated integration testing framework for Patchwork compiler",
+    "Validate compiled plugins load and execute in Claude Code",
+    "Document Claude Code marketplace structure requirements"
   ],
   
   "completed_work": {
-    "runtime_fixes": [
-      "Fixed manifest generation to reference index.js instead of workers/",
-      "Fixed code-process-init.js for bidirectional IPC using shared StdinReader",
-      "Fixed shell operator function names ($shellPipe, $shellAnd, $shellOr, $shellRedirect)",
-      "Exported getStdinReader() from runtime for session initialization"
+    "integration_test_framework": [
+      "Created comprehensive integration testing documentation (docs/integration-testing.md)",
+      "Implemented test runner script (tests/integration/run_test.sh)",
+      "Created first working test case (tests/integration/greeter/)",
+      "Discovered and documented correct marketplace directory structure"
     ],
-    "interpolation_spacing": [
-      "Fixed space before ${} interpolations",
-      "Fixed space after ${} interpolations",
-      "Documented whitespace handling approach in parser-whitespace-status.md",
-      "All 61 tests passing with correct spacing"
+    "marketplace_discovery": [
+      "Found correct nested source structure for extraKnownMarketplaces",
+      "Validated marketplace.json catalog requirements",
+      "Confirmed relative paths are mandatory for both settings and marketplace",
+      "Tested plugin naming consistency requirements across all config files"
     ],
-    "ipc_validation": [
-      "Successfully tested code process spawning",
-      "Validated stdio IPC communication (session init + ongoing messages)",
-      "Tested executePrompt() with think blocks - full round-trip working",
-      "Created test harnesses simulating Claude agent IPC handling"
-    ],
-    "end_to_end_example": [
-      "Created /tmp/greeter-plugin.pw with proper Agent trait structure",
-      "Compiled to working Claude Code plugin in /tmp/greeter-plugin/",
-      "Plugin has @skill entry point and worker with think block",
-      "Demonstrates complete compilation pipeline"
+    "test_validation": [
+      "Compilation succeeds with exit code 0",
+      "Plugin manifest generated correctly",
+      "Claude Code discovers and loads plugin from local marketplace",
+      "Skill executes successfully with think block",
+      "JSON output validates correctly"
     ]
   },
   
-  "key_files_modified": [
-    "crates/patchwork-compiler/src/code-process-init.js - async stdin for IPC",
-    "crates/patchwork-compiler/src/runtime.js - exported getStdinReader()",
-    "crates/patchwork-compiler/src/codegen.rs - $-prefixed shell functions",
-    "crates/patchwork-compiler/src/prompts.rs - interpolation spacing fixes",
-    "crates/patchwork-compiler/tests/codegen_tests.rs - updated expectations"
+  "key_files_created": [
+    "docs/integration-testing.md - Complete testing framework documentation",
+    "tests/integration/run_test.sh - Automated test runner with marketplace setup",
+    "tests/integration/greeter/source.pw - Example plugin source",
+    "tests/integration/greeter/prompt.txt - Test invocation prompt",
+    "tests/integration/greeter/expected_manifest.json - Validation baseline"
   ],
   
-  "remaining_phase12_tasks": [
-    "Test multi-worker delegation with mailbox communication",
-    "Verify session failure propagation across processes",
-    "Test filesystem-based mailbox send/receive",
-    "Update manifest filename from plugin.json to manifest.json"
-  ],
-  
-  "technical_insights": {
-    "ipc_architecture": "Dual-process model with stdio IPC. Session context sent on first line, then bidirectional JSON messages for executePrompt/delegate requests and responses.",
-    "whitespace_challenge": "LALRPOP auto-skipping drops whitespace tokens. Post-processing adds spaces around interpolations. Good enough for natural language prompts but may need revisiting for code generation.",
-    "shell_functions": "Runtime exports with $ prefix ($shellPipe etc) to avoid naming conflicts. Codegen calls these directly."
+  "critical_discoveries": {
+    "marketplace_structure": "Marketplace must be at workspace/marketplace/ with .claude-plugin/marketplace.json catalog. Plugins in marketplace/plugins/ subdirectory.",
+    "settings_configuration": "extraKnownMarketplaces requires nested source object: {source: {source: 'directory', path: './marketplace'}}",
+    "plugin_naming": "Plugin name must match across: directory name, marketplace.json entry, plugin.json name field, and enabledPlugins key (<name>@<marketplace>)",
+    "non_interactive_mode": "Local marketplace plugins CAN be loaded in -p mode with proper configuration, enabling full automation"
   },
   
-  "next_session_context": "Phase 12 core runtime validation complete. Ready to test multi-worker coordination features (delegation, mailboxes) or move to Phase 13 (plugin packaging and distribution)."
+  "next_steps": [
+    "Add more integration test cases (multi-worker, error handling)",
+    "Consider content validation of plugin output",
+    "Test multi-plugin marketplace scenarios",
+    "Phase 13: Plugin packaging and distribution"
+  ]
 }

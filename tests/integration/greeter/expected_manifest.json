@@ -1,0 +1,8 @@
+{
+  "name": "greeter",
+  "version": "0.1.0",
+  "description": "greeter plugin",
+  "author": {
+    "name": "Patchwork Compiler"
+  }
+}

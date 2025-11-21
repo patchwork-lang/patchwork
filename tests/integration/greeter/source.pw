@@ -1,0 +1,18 @@
+worker greeter_worker(name: string) {
+    $ echo "Preparing greeting for ${name}..."
+
+    think {
+        You are a friendly AI assistant testing the Patchwork compiler.
+
+        Please greet the user named ${name} with a warm, personalized message.
+        Include their name in the greeting and wish them a wonderful day.
+    }
+}
+
+export default trait Greeter: Agent {
+    # Greets a user with a personalized message
+    @skill greet
+    fun greet(name: string) {
+        self.delegate([greeter_worker(name)]).await
+    }
+}
