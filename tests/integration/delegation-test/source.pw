@@ -1,0 +1,76 @@
+# Multi-Worker Delegation Test
+# Tests fork-join delegation with multiple workers and result collection
+
+worker task_a() {
+    $ echo "Task A starting"
+    $ sleep 1
+    $ echo "Task A complete"
+
+    think {
+        Task A is analyzing the data structure.
+        Return the result: "A-complete"
+    }
+}
+
+worker task_b() {
+    $ echo "Task B starting"
+    $ sleep 1
+    $ echo "Task B complete"
+
+    think {
+        Task B is processing the configuration.
+        Return the result: "B-complete"
+    }
+}
+
+worker task_c() {
+    $ echo "Task C starting"
+    $ sleep 1
+    $ echo "Task C complete"
+
+    think {
+        Task C is validating the constraints.
+        Return the result: "C-complete"
+    }
+}
+
+worker coordinator() {
+    $ echo "Coordinator starting delegation"
+
+    # Fork-join: run three tasks concurrently
+    var [result_a, result_b, result_c] = self.delegate([
+        task_a(),
+        task_b(),
+        task_c()
+    ]).await
+
+    $ echo "All tasks completed"
+
+    think {
+        Multi-worker delegation test completed successfully.
+
+        **Results collected from workers:**
+        - Task A: ${result_a}
+        - Task B: ${result_b}
+        - Task C: ${result_c}
+
+        **Session info:**
+        - Session ID: ${self.session.id}
+        - Timestamp: ${self.session.timestamp}
+
+        Please verify:
+        1. All three results were collected
+        2. Results match the expected values (A-complete, B-complete, C-complete)
+        3. Workers ran concurrently (should complete in ~1 second, not 3)
+
+        Confirm the delegation test passed.
+    }
+}
+
+export default trait DelegationTest: Agent {
+    # Tests multi-worker fork-join delegation
+    @skill test
+    fun test() {
+        self.delegate([coordinator()]).await
+    }
+}

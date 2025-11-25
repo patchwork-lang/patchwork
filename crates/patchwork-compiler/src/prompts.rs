@@ -52,15 +52,6 @@ pub fn extract_prompt_template(
         match item {
             PromptItem::Text(text) => {
                 // Plain text goes directly into markdown
-                // But check if we need to prepend a space after an interpolation
-                if idx > 0 {
-                    if let PromptItem::Interpolation(_) = &block.items[idx - 1] {
-                        // Previous item was interpolation - check if text starts with non-whitespace
-                        if !text.is_empty() && !text.starts_with(char::is_whitespace) {
-                            markdown.push(' ');
-                        }
-                    }
-                }
                 markdown.push_str(text);
             }
             PromptItem::Interpolation(expr) => {

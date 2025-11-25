@@ -1,0 +1,24 @@
+export default trait CatTest: Agent {
+    @skill test
+    fun test(name: string) {
+        self.delegate([test_worker(name)]).await
+    }
+}
+
+worker test_worker(name: string) {
+    var data = {
+        name: name,
+        timestamp: self.session.timestamp,
+        session_id: self.session.id
+    }
+
+    var json = cat(data)
+
+    think {
+        The cat() function produced this JSON output:
+
+        ${json}
+
+        Verify it looks correct and report success.
+    }
+}

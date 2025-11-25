@@ -1,0 +1,50 @@
+# Variable Interpolation Test
+# Tests that think blocks correctly receive variable bindings via IPC
+
+worker test_interpolation(name: string, count: number) {
+    var session_id = self.session.id
+    var timestamp = self.session.timestamp
+    var dir = self.session.dir
+
+    # Create test data structure
+    var config = {
+        debug: true,
+        max_retries: count,
+        env: "test"
+    }
+
+    var json_config = cat(config)
+
+    think {
+        Testing variable interpolation in think blocks.
+
+        **Scalar variables:**
+        - Name: ${name}
+        - Count: ${count}
+        - Session ID: ${session_id}
+        - Timestamp: ${timestamp}
+        - Directory: ${dir}
+
+        **Complex variable:**
+        - Config JSON:
+        ${json_config}
+
+        Please verify all variables interpolated correctly:
+        1. Name should be a string
+        2. Count should be a number
+        3. Session ID should be a ULID
+        4. Timestamp should be an ISO 8601 date
+        5. Directory should be a tmp path
+        6. Config JSON should be valid JSON with the three fields
+
+        Confirm the interpolation test passed.
+    }
+}
+
+export default trait InterpolationTest: Agent {
+    # Tests variable interpolation in think blocks
+    @skill test
+    fun test(name: string, count: number) {
+        self.delegate([test_interpolation(name, count)]).await
+    }
+}

@@ -706,3 +706,17 @@ export async function delegate(session, workers) {
 export function log(...args) {
   console.log(...args);
 }
+
+/**
+ * Standard library: JSON serialization
+ *
+ * Converts a JavaScript value to a JSON string with pretty-printing.
+ * Commonly used with shell redirection to write JSON files:
+ *   cat({...}) > "file.json"
+ *
+ * @param {any} value - The value to serialize
+ * @returns {string} JSON string representation
+ */
+export function cat(value) {
+  return JSON.stringify(value, null, 2);
+}

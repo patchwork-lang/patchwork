@@ -131,6 +131,11 @@ impl Scope {
             ret: Box::new(Type::Void),
         });
 
+        scope.add_builtin("cat", Type::Function {
+            params: vec![Type::Unknown], // Accepts any type
+            ret: Box::new(Type::String),
+        });
+
         scope
     }
 
@@ -260,7 +265,7 @@ impl TypeChecker {
                 // Handle std library imports
                 if segments.first() == Some(&"std") && segments.len() == 2 {
                     let name = segments[1];
-                    // Add std library symbols (currently only log)
+                    // Add std library symbols (currently log and cat)
                     match name {
                         "log" => {
                             // log is a variadic function: log(...args)
@@ -269,6 +274,17 @@ impl TypeChecker {
                                 Type::Function {
                                     params: vec![], // Variadic, so params are unknown
                                     ret: Box::new(Type::Void),
+                                },
+                                SymbolKind::Function
+                            )?;
+                        }
+                        "cat" => {
+                            // cat is a function: cat(value: any) -> string
+                            self.scope.add_symbol(
+                                "cat".to_string(),
+                                Type::Function {
+                                    params: vec![Type::Unknown], // Accepts any type
+                                    ret: Box::new(Type::String),
                                 },
                                 SymbolKind::Function
                             )?;

@@ -1,0 +1,62 @@
+# Mailbox Communication Test
+# Tests two workers communicating via filesystem-based mailboxes
+
+worker sender(count: number) {
+    var channel = self.session.mailbox.data_channel
+
+    var i = 0
+    while (i < count) {
+        i = i + 1
+        var message = {
+            sequence: i,
+            value: i * 10,
+            timestamp: self.session.timestamp
+        }
+
+        channel.send(message)
+        $ echo "Sent message ${i}"
+    }
+
+    # Send completion signal
+    channel.send({ type: "done" })
+}
+
+worker receiver() {
+    var channel = self.session.mailbox.data_channel
+    var received = 0
+    var sum = 0
+
+    while (true) {
+        var msg = channel.receive(30000)  # 30 second timeout
+
+        if msg.type = "done" {
+            $ echo "Received completion signal"
+            break
+        }
+
+        received = received + 1
+        sum = sum + msg.value
+        $ echo "Received message ${msg.sequence}: value=${msg.value}"
+    }
+
+    think {
+        The mailbox communication test completed successfully.
+
+        - Messages received: ${received}
+        - Sum of values: ${sum}
+        - Session ID: ${self.session.id}
+
+        Please confirm the test results look correct:
+        - We should have received 5 messages
+        - Sum should be 50 + 40 + 30 + 20 + 10 = 150
+    }
+}
+
+export default trait MailboxTest: Agent {
+    # Tests mailbox communication between two workers
+    @skill test
+    fun test() {
+        # Fork-join: sender and receiver run concurrently
+        self.delegate([sender(5), receiver()]).await
+    }
+}

@@ -110,7 +110,7 @@ impl CodeGenerator {
         // Import runtime primitives from the bundled runtime file
         let runtime_path = crate::runtime::get_runtime_module_name();
         self.output.push_str("// Patchwork runtime imports\n");
-        write!(self.output, "import {{ shell, $shellPipe, $shellAnd, $shellOr, $shellRedirect, SessionContext, executePrompt, delegate, log }} from '{}';\n\n", runtime_path).unwrap();
+        write!(self.output, "import {{ shell, $shellPipe, $shellAnd, $shellOr, $shellRedirect, SessionContext, executePrompt, delegate, log, cat }} from '{}';\n\n", runtime_path).unwrap();
     }
 
     /// Generate import statement
