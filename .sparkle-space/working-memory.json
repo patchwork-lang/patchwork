@@ -1,76 +1,58 @@
 {
-  "session_type": "phase_12_runtime_validation",
+  "session_type": "patchwork_acp_design",
   "workspace": "/Users/dherman/Code/patchwork",
-  "phase": "Phase 12: Runtime Testing and Validation",
-  "completion": "100%",
-  
-  "session_goals": [
-    "Complete Phase 12: Validate compiled plugins execute correctly in Claude Code",
-    "Implement cat() function for JSON serialization",
-    "Create integration tests for mailbox communication, interpolation, and delegation",
-    "Update implementation plan to reflect exploratory phase completion"
-  ],
+  "focus": "Design document for Patchwork ACP interpreter - supercharged prompting language",
   
   "completed_work": {
-    "cat_implementation": [
-      "Implemented cat() function in runtime.js (JSON.stringify with pretty-printing)",
-      "Added cat as builtin function in type checker (accepts any type, returns string)",
-      "Updated codegen to import cat from runtime",
-      "Fixed interpolation spacing bug (removed extra space after ${} placeholders)",
-      "All 251 unit tests passing"
+    "design_document": [
+      "Created comprehensive patchwork-acp-design.md",
+      "Defined architecture: interpreter-as-proxy middleware in SACP chain",
+      "Documented core components: patchwork-acp (binary), patchwork-eval (library)",
+      "Specified key API: Interpreter with ControlState (Eval, Yield, Return, Throw)",
+      "Detailed message flow: code detection → interpretation → LLM suspension → response extraction",
+      "Documented design decisions:",
+      "  - Session-scoped interpreter storage (one eval per session)",
+      "  - Direct AST reuse from patchwork-parser",
+      "  - Pre-interpolate variables before sending to LLM",
+      "  - Marker-based response extraction with guided format",
+      "  - Exception semantics for error handling",
+      "  - No resource limits (Turing-complete language)",
+      "Defined demo goal: interview sanitization script"
     ],
-    "integration_tests": [
-      "Created mailbox-test: Two workers communicating via filesystem mailboxes",
-      "Created interpolation-test: Think blocks with variable bindings via IPC",
-      "Created delegation-test: Fork-join with 3 concurrent workers",
-      "All 4 integration tests passing (greeter, mailbox, interpolation, delegation)"
+    "implementation_plan": [
+      "Created patchwork-acp-implementation-plan.md with full task checklists",
+      "Phase 1: Minimal infrastructure (proxy skeleton, code detection)",
+      "Phase 2: Shell command execution (deterministic features)",
+      "Phase 3: LLM integration (think blocks with suspension/resume)",
+      "Phase 4: Polish (error handling, docs, tests)",
+      "Each phase has detailed checkbox tasks and success criteria"
     ],
-    "historian_analysis": [
-      "Analyzed full historian plugin requirements",
-      "Identified language feature gaps (embedded do blocks, .length property)",
-      "Confirmed cat() was only immediate blocker - now resolved",
-      "Historian compiles past cat() error, blocks on embedded do blocks as expected"
-    ],
-    "documentation": [
-      "Created phase12-status.md with complete Phase 12 summary",
-      "Updated compiler-implementation-plan.md to mark Phase 12 complete",
-      "Removed Phase 13, reframed as exploratory phase complete",
-      "Updated Future Work section to reflect language exploration focus"
+    "collaborative_process": [
+      "Systematically resolved 4 key design questions:",
+      "  1. Interpreter state storage → session-scoped",
+      "  2. Parser reuse → direct AST sharing",
+      "  3. Variable interpolation → pre-interpolate",
+      "  4. Response extraction → guided format with markers",
+      "Refined terminology to match PL conventions (ControlState, Yield, etc.)",
+      "Cleaned up documents: removed implementation details from design doc",
+      "Separated concerns: design.md (architecture) vs implementation-plan.md (tactics)"
     ]
   },
   
-  "key_files_created": [
-    "tests/integration/mailbox-test/ - Mailbox communication test",
-    "tests/integration/interpolation-test/ - Variable interpolation test",
-    "tests/integration/delegation-test/ - Multi-worker delegation test",
-    "docs/phase12-status.md - Phase 12 completion summary",
-    "examples/cat-test.pw - Simple test for cat() function"
+  "key_files": [
+    "docs/patchwork-acp-design.md - Architecture and design decisions",
+    "docs/patchwork-acp-implementation-plan.md - Phased implementation with task checklists"
   ],
   
-  "key_files_modified": [
-    "crates/patchwork-compiler/src/runtime.js - Added cat() function",
-    "crates/patchwork-compiler/src/typecheck.rs - Added cat as builtin",
-    "crates/patchwork-compiler/src/codegen.rs - Import cat from runtime",
-    "crates/patchwork-compiler/src/prompts.rs - Fixed interpolation spacing",
-    "docs/compiler-implementation-plan.md - Marked Phase 12 complete, removed Phase 13"
+  "next_steps": [
+    "Begin Phase 1 implementation: create crates, set up proxy skeleton",
+    "Implement code detection and basic SACP integration",
+    "Build interpreter skeleton with core types"
   ],
   
-  "test_results": {
-    "unit_tests": "251 passing",
-    "integration_tests": "4 passing (greeter, mailbox-test, interpolation-test, delegation-test)",
-    "validation": "End-to-end runtime behavior validated"
-  },
-  
-  "critical_discoveries": {
-    "cat_as_builtin": "cat() works better as builtin (always available) vs std.cat import",
-    "historian_blockers": "Only embedded do blocks and .length prevent full historian compilation",
-    "runtime_validated": "All core runtime features work correctly: mailboxes, IPC, delegation, sessions",
-    "phase_complete": "All 12 planned implementation phases complete - compiler ready for exploration"
-  },
-  
-  "project_status": {
-    "phases_complete": "12/12 (100% of planned phases)",
-    "compiler_state": "Functionally complete working prototype",
-    "next_focus": "Real-world usage and language design evolution"
+  "context": {
+    "demo_target": "Interview sanitization script with think blocks in loops",
+    "architecture": "ACP proxy middleware using SACP, interpreter with suspend/resume",
+    "philosophy": "Supercharged prompting language blending deterministic + nondeterministic"
   }
 }
