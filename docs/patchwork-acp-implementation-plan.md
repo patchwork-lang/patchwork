@@ -103,75 +103,88 @@ Build an ACP proxy that interprets Patchwork code in real-time, enabling a "supe
   - [x] `Array(Vec<Value>)`, `Object(HashMap<String, Value>)`
   - [x] Implement `Display` for debugging
 
-- [ ] Implement type conversions
+- [x] Implement type conversions
   - [x] `Value::to_string()` for string coercion
   - [x] `Value::to_bool()` for boolean coercion
-  - [ ] `Value::from_json()` for parsing JSON
+  - [x] `Value::from_json()` for parsing JSON
+  - [x] `Value::to_json()` for serializing to JSON
 
 ### Runtime Environment
 
-- [ ] Implement `Runtime` struct
-  - [ ] `variables: HashMap<String, Value>` - variable bindings
-  - [ ] `working_dir: PathBuf` - current directory
-  - [ ] Helper methods: `get_var()`, `set_var()`, `define_var()`
+- [x] Implement `Runtime` struct
+  - [x] `scopes: Vec<HashMap<String, Value>>` - scoped variable bindings
+  - [x] `working_dir: PathBuf` - current directory
+  - [x] Helper methods: `get_var()`, `set_var()`, `define_var()`
+  - [x] Scope management: `push_scope()`, `pop_scope()`
 
-- [ ] Implement shell command execution
-  - [ ] Execute `std::process::Command` with captured output
-  - [ ] Parse stdout as array of lines for `$ ls -1`
-  - [ ] Handle exit codes (non-zero = exception)
-  - [ ] Implement string interpolation in command strings
+- [x] Implement shell command execution
+  - [x] Execute `std::process::Command` with captured output
+  - [x] Parse stdout as array of lines for `ls -1`
+  - [x] Handle exit codes (non-zero = exception)
+  - [x] Implement string interpolation in command strings
 
-- [ ] Implement file I/O
-  - [ ] `json < file` - read file, parse as JSON, return Value
-  - [ ] `cat(value) > file` - serialize value to JSON, write to file
-  - [ ] Handle file errors (not found, permission denied, etc.)
+- [x] Implement file I/O
+  - [x] `json < file` - read file, parse as JSON, return Value (via ShellRedirect)
+  - [x] `cat(value) > file` - serialize value to JSON, write to file (via ShellRedirect)
+  - [x] `read(path)` - read file contents as string
+  - [x] `write(path, content)` - write string to file
+  - [x] Handle file errors (not found, permission denied, etc.)
 
 ### Expression Evaluation
 
-- [ ] Implement expression evaluator
-  - [ ] Literals: strings, numbers, booleans, null
-  - [ ] Variables: lookup in runtime environment
-  - [ ] Shell commands: execute and return Value
-  - [ ] Function calls: `cat(...)`, `json(...)` builtins
-  - [ ] String interpolation: `${expr}` and `$@{expr}`
+- [x] Implement expression evaluator
+  - [x] Literals: strings, numbers, booleans, null
+  - [x] Variables: lookup in runtime environment
+  - [x] Shell commands: execute and return Value (via BareCommand)
+  - [x] Function calls: `cat(...)`, `json(...)` builtins
+  - [x] String interpolation: `$var` and `${expr}`
+  - [x] Binary operations: arithmetic, comparison, logical
+  - [x] Unary operations: not, negation, throw
+  - [x] Member access: `obj.field`
+  - [x] Index access: `arr[i]`
+  - [x] Object and array literals
 
 ### Statement Evaluation
 
-- [ ] Implement statement evaluator
-  - [ ] Variable declarations: `var name = expr`
-  - [ ] Destructuring: `var { a, b } = expr`
-  - [ ] For-loops: `for var x in expr { ... }`
-  - [ ] Block statements: `{ stmt; stmt; ... }`
-  - [ ] Expression statements
+- [x] Implement statement evaluator
+  - [x] Variable declarations: `var name = expr`
+  - [x] Destructuring: `var { a, b } = expr`
+  - [x] For-loops: `for var x in expr { ... }`
+  - [x] Block statements: `{ stmt; stmt; ... }`
+  - [x] Expression statements
+  - [x] If/else statements
+  - [x] While loops
 
-- [ ] Implement control flow
-  - [ ] Return values from blocks
-  - [ ] Break/continue (if needed for loops)
-  - [ ] Exception propagation
+- [x] Implement control flow
+  - [x] Return values from blocks
+  - [x] Break statement (basic)
+  - [x] Exception propagation (via Error)
 
 ### Builtin Functions
 
-- [ ] Implement `cat(value: Value) -> String`
-  - [ ] Serialize to pretty-printed JSON
-  - [ ] Return as string value
+- [x] Implement `cat(value: Value) -> String`
+  - [x] Serialize to pretty-printed JSON
+  - [x] Return as string value
 
-- [ ] Implement `json(text: String) -> Value`
-  - [ ] Parse JSON string
-  - [ ] Return parsed value
-  - [ ] Throw exception on parse error
+- [x] Implement `json(text: String) -> Value`
+  - [x] Parse JSON string
+  - [x] Return parsed value
+  - [x] Throw exception on parse error
+
+- [x] Additional builtins: `print`, `len`, `keys`, `values`, `typeof`, `read`, `write`
 
 ### Testing
 
-- [ ] Unit tests for value conversions
-- [ ] Unit tests for shell command execution
-- [ ] Unit tests for file I/O operations
-- [ ] Unit tests for expression evaluation
-- [ ] Unit tests for statement evaluation
-- [ ] Integration test: Run simplified demo (no think blocks)
-  - [ ] Create test directory with interview folders
-  - [ ] Create metadata.json files
-  - [ ] Run Patchwork code
-  - [ ] Verify output.json files created correctly
+- [x] Unit tests for value conversions
+- [x] Unit tests for shell command execution (via bare command tests)
+- [x] Unit tests for file I/O operations
+- [x] Unit tests for expression evaluation
+- [x] Unit tests for statement evaluation
+- [x] Integration test: Run simplified demo (no think blocks)
+  - [x] Create test directory with interview folders
+  - [x] Create metadata.json files
+  - [x] Run Patchwork code
+  - [x] Verify output.json files created correctly
 
 ---
 

@@ -6,10 +6,14 @@
 
 mod value;
 mod interpreter;
+mod runtime;
+mod eval;
 mod error;
 
 pub use value::Value;
 pub use interpreter::{Interpreter, ControlState, LlmOp, Bindings};
+pub use runtime::Runtime;
+pub use eval::{eval_block, eval_expr, eval_statement};
 pub use error::Error;
 
 /// Result type for interpreter operations.

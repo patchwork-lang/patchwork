@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use serde_json::Value as JsonValue;
+
 /// A runtime value in the Patchwork language.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -62,6 +64,61 @@ impl Value {
     /// Check if this value is null.
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
+    }
+
+    /// Parse a JSON string into a Value.
+    pub fn from_json(s: &str) -> Result<Value, String> {
+        let json: JsonValue = serde_json::from_str(s)
+            .map_err(|e| format!("JSON parse error: {}", e))?;
+        Ok(Value::from_json_value(json))
+    }
+
+    /// Convert a serde_json Value to our Value type.
+    fn from_json_value(json: JsonValue) -> Value {
+        match json {
+            JsonValue::Null => Value::Null,
+            JsonValue::Bool(b) => Value::Boolean(b),
+            JsonValue::Number(n) => Value::Number(n.as_f64().unwrap_or(0.0)),
+            JsonValue::String(s) => Value::String(s),
+            JsonValue::Array(arr) => {
+                Value::Array(arr.into_iter().map(Value::from_json_value).collect())
+            }
+            JsonValue::Object(obj) => {
+                let map = obj.into_iter()
+                    .map(|(k, v)| (k, Value::from_json_value(v)))
+                    .collect();
+                Value::Object(map)
+            }
+        }
+    }
+
+    /// Convert this Value to a JSON string.
+    pub fn to_json(&self) -> String {
+        let json = self.to_json_value();
+        serde_json::to_string_pretty(&json).unwrap_or_else(|_| "null".to_string())
+    }
+
+    /// Convert this Value to a serde_json Value.
+    fn to_json_value(&self) -> JsonValue {
+        match self {
+            Value::Null => JsonValue::Null,
+            Value::Boolean(b) => JsonValue::Bool(*b),
+            Value::Number(n) => {
+                serde_json::Number::from_f64(*n)
+                    .map(JsonValue::Number)
+                    .unwrap_or(JsonValue::Null)
+            }
+            Value::String(s) => JsonValue::String(s.clone()),
+            Value::Array(arr) => {
+                JsonValue::Array(arr.iter().map(|v| v.to_json_value()).collect())
+            }
+            Value::Object(obj) => {
+                let map: serde_json::Map<String, JsonValue> = obj.iter()
+                    .map(|(k, v)| (k.clone(), v.to_json_value()))
+                    .collect();
+                JsonValue::Object(map)
+            }
+        }
     }
 }
 

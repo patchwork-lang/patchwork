@@ -1,32 +1,38 @@
 {
-  "current_focus": "Patchwork ACP interpreter - Phase 1 complete",
+  "current_focus": "Phase 2 Complete - Patchwork ACP interpreter",
   "session_context": {
     "project": "patchwork",
-    "phase": "Phase 1 Complete - ready for Phase 2",
-    "last_commit": "a585b54 Mark Phase 1 manual testing complete"
+    "phase": "Phase 2 Complete - ready for Phase 3",
+    "last_work": "Implemented full expression/statement evaluation engine"
   },
   "completed_work": [
-    "Created patchwork-eval library crate with interpreter, value, error modules",
-    "Created patchwork-acp binary crate as SACP proxy",
-    "Implemented code detection (prompts starting with `{`)",
-    "Session management skeleton with store/retrieve/remove interpreter",
-    "Manual testing passed with sacp-conductor + elizacp",
-    "All 200+ workspace tests pass"
+    "Created eval.rs with complete expression and statement evaluation",
+    "Created runtime.rs with scoped variable bindings and working directory",
+    "Added Value::from_json() and Value::to_json() for JSON serialization",
+    "Implemented shell command execution via BareCommand",
+    "Implemented file I/O via read(), write(), and shell redirects",
+    "Implemented builtins: cat, json, print, len, keys, values, typeof, read, write",
+    "Added block wrapping (skill __main__) for ACP bare block execution",
+    "26 unit and integration tests passing",
+    "124 total workspace tests passing",
+    "Updated implementation plan with Phase 2 checkmarks"
   ],
   "key_technical_decisions": [
-    "Using patchwork_parser::parse(code) directly instead of separate lexer",
-    "Using sacp::schema::* re-exports for ACP types",
-    "Proxy requires successor component (elizacp) to get proxy capability",
-    "ControlState enum: Eval, Yield, Return, Throw for suspend/resume pattern"
+    "Runtime uses Vec<HashMap> for scoped variable bindings with push/pop",
+    "Bare { } blocks wrapped in 'skill __main__()' for valid parsing",
+    "eval.rs handles all expression types including BareCommand, ShellRedirect",
+    "File I/O via builtins read()/write() plus redirect operators",
+    "String interpolation evaluated during string literal processing"
   ],
   "next_steps": [
-    "Phase 2: Shell Command Execution",
-    "Implement Runtime struct with variable bindings",
-    "Implement shell command execution",
-    "Implement file I/O (json <, cat() >)",
-    "Implement expression and statement evaluation"
+    "Phase 3: LLM Integration",
+    "Implement think block evaluation with Yield state",
+    "Implement interpreter suspend/resume mechanism",
+    "Forward think prompts to successor agent",
+    "Extract typed responses from LLM output"
   ],
   "patterns_noted": [
-    "When deferring a task to a later phase, move it to the right place in the plan document"
+    "Integration test test_phase2_demo_simplified validates full workflow",
+    "tempfile crate for isolated test directories"
   ]
 }
