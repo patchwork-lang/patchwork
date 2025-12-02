@@ -1,52 +1,32 @@
 {
-  "session_type": "patchwork_acp_implementation",
-  "workspace": "/Users/dherman/Code/patchwork",
-  "focus": "Phase 1 complete - Patchwork ACP interpreter infrastructure",
-  
-  "completed_work": {
-    "phase_1_implementation": [
-      "Created patchwork-eval library crate with interpreter core",
-      "Created patchwork-acp binary crate with SACP proxy",
-      "Implemented code detection (prompts starting with {)",
-      "Implemented session management skeleton",
-      "Integrated with existing patchwork-parser for AST generation",
-      "All 200+ workspace tests passing"
-    ],
-    "new_crates": {
-      "patchwork-eval": [
-        "Core types: Interpreter, ControlState, LlmOp, Bindings",
-        "Value enum: Null, String, Number, Boolean, Array, Object",
-        "eval() - parses and executes Patchwork code (stub)",
-        "resume() - continues after LLM response (stub)",
-        "Error types for parse and runtime errors"
-      ],
-      "patchwork-acp": [
-        "SACP proxy using sacp and sacp-proxy crates",
-        "PromptRequest handler with code detection",
-        "Session-scoped interpreter storage",
-        "Forwards non-code prompts to successor",
-        "Tracing/logging to stderr"
-      ]
-    }
+  "current_focus": "Patchwork ACP interpreter - Phase 1 complete",
+  "session_context": {
+    "project": "patchwork",
+    "phase": "Phase 1 Complete - ready for Phase 2",
+    "last_commit": "a585b54 Mark Phase 1 manual testing complete"
   },
-  
-  "key_files": [
-    "crates/patchwork-eval/src/lib.rs - Interpreter library entry point",
-    "crates/patchwork-eval/src/interpreter.rs - Core interpreter with ControlState",
-    "crates/patchwork-eval/src/value.rs - Runtime value types",
-    "crates/patchwork-acp/src/main.rs - ACP proxy binary"
+  "completed_work": [
+    "Created patchwork-eval library crate with interpreter, value, error modules",
+    "Created patchwork-acp binary crate as SACP proxy",
+    "Implemented code detection (prompts starting with `{`)",
+    "Session management skeleton with store/retrieve/remove interpreter",
+    "Manual testing passed with sacp-conductor + elizacp",
+    "All 200+ workspace tests pass"
   ],
-  
+  "key_technical_decisions": [
+    "Using patchwork_parser::parse(code) directly instead of separate lexer",
+    "Using sacp::schema::* re-exports for ACP types",
+    "Proxy requires successor component (elizacp) to get proxy capability",
+    "ControlState enum: Eval, Yield, Return, Throw for suspend/resume pattern"
+  ],
   "next_steps": [
-    "Phase 2: Value system with type conversions",
-    "Phase 2: Runtime environment with variables",
-    "Phase 2: Shell command execution",
-    "Phase 2: Expression and statement evaluation"
+    "Phase 2: Shell Command Execution",
+    "Implement Runtime struct with variable bindings",
+    "Implement shell command execution",
+    "Implement file I/O (json <, cat() >)",
+    "Implement expression and statement evaluation"
   ],
-  
-  "context": {
-    "architecture": "Interpreter-as-proxy middleware in SACP chain",
-    "parser_integration": "Uses patchwork_parser::parse() directly",
-    "session_model": "One active evaluation per ACP session"
-  }
+  "patterns_noted": [
+    "When deferring a task to a later phase, move it to the right place in the plan document"
+  ]
 }
