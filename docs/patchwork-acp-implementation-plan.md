@@ -18,61 +18,60 @@ Build an ACP proxy that interprets Patchwork code in real-time, enabling a "supe
 
 ### Setup Tasks
 
-- [ ] Create `crates/patchwork-acp/` binary crate
-  - [ ] Add to workspace `Cargo.toml`
-  - [ ] Set up `Cargo.toml` with dependencies:
-    - [ ] `sacp` crate
-    - [ ] `sacp-proxy` crate
-    - [ ] `tokio` for async runtime
-    - [ ] `patchwork-eval` (local dependency)
-  - [ ] Create `src/main.rs` entry point
+- [x] Create `crates/patchwork-acp/` binary crate
+  - [x] Add to workspace `Cargo.toml`
+  - [x] Set up `Cargo.toml` with dependencies:
+    - [x] `sacp` crate
+    - [x] `sacp-proxy` crate
+    - [x] `tokio` for async runtime
+    - [x] `patchwork-eval` (local dependency)
+  - [x] Create `src/main.rs` entry point
 
-- [ ] Create `crates/patchwork-eval/` library crate
-  - [ ] Add to workspace `Cargo.toml`
-  - [ ] Set up `Cargo.toml` with dependencies:
-    - [ ] `patchwork-parser` (local dependency)
-    - [ ] `patchwork-lexer` (local dependency)
-  - [ ] Create `src/lib.rs` with module structure
+- [x] Create `crates/patchwork-eval/` library crate
+  - [x] Add to workspace `Cargo.toml`
+  - [x] Set up `Cargo.toml` with dependencies:
+    - [x] `patchwork-parser` (local dependency)
+    - ~~`patchwork-lexer` (local dependency)~~ (not needed - parser handles lexing)
+  - [x] Create `src/lib.rs` with module structure
 
 ### Proxy Implementation
 
-- [ ] Implement basic SACP proxy structure
-  - [ ] Set up `JrHandlerChain` with stdio connection
-  - [ ] Register as proxy component (`.proxy()`)
-  - [ ] Handle `initialize` request (capability handshake)
-  - [ ] Forward all requests to successor by default
+- [x] Implement basic SACP proxy structure
+  - [x] Set up `JrHandlerChain` with stdio connection
+  - [x] Register as proxy component (`.proxy()`)
+  - [x] Handle `initialize` request (capability handshake)
+  - [x] Forward all requests to successor by default
 
-- [ ] Implement code detection
-  - [ ] Intercept `prompt` requests
-  - [ ] Extract text content from messages
-  - [ ] Check if text starts with `{` (trim whitespace first)
-  - [ ] Log detected code blocks to stderr
-  - [ ] Forward non-code prompts unchanged
+- [x] Implement code detection
+  - [x] Intercept `prompt` requests
+  - [x] Extract text content from messages
+  - [x] Check if text starts with `{` (trim whitespace first)
+  - [x] Log detected code blocks to stderr
+  - [x] Forward non-code prompts unchanged
 
-- [ ] Session management skeleton
-  - [ ] Define `PatchworkProxy` struct with session storage
-  - [ ] Implement `has_active_evaluation()`, `store_interpreter()`, `retrieve_interpreter()`, `remove_interpreter()`
-  - [ ] Return error if code submitted while eval in progress
+- [x] Session management skeleton
+  - [x] Define `PatchworkProxy` struct with session storage
+  - [x] Implement `has_active_evaluation()`, `store_interpreter()`, `retrieve_interpreter()`, `remove_interpreter()`
+  - [x] Return error if code submitted while eval in progress
 
 ### Interpreter Skeleton
 
-- [ ] Define core types in `patchwork-eval`
-  - [ ] `pub struct Interpreter` with `runtime: Runtime` and `state: ControlState`
-  - [ ] `pub enum ControlState { Eval, Yield { ... }, Return(Value), Throw(Value) }`
-  - [ ] `pub enum LlmOp { Think, Ask }`
-  - [ ] `pub type Bindings = HashMap<String, Value>`
+- [x] Define core types in `patchwork-eval`
+  - [x] `pub struct Interpreter` with `state: ControlState`
+  - [x] `pub enum ControlState { Eval, Yield { ... }, Return(Value), Throw(Value) }`
+  - [x] `pub enum LlmOp { Think, Ask }`
+  - [x] `pub type Bindings = HashMap<String, Value>`
 
-- [ ] Implement `Interpreter::new()`
-  - [ ] Initialize runtime
-  - [ ] Set initial state to `ControlState::Eval`
+- [x] Implement `Interpreter::new()`
+  - [x] Set initial state to `ControlState::Eval`
 
-- [ ] Implement `Interpreter::eval(code: &str)` stub
-  - [ ] Parse code using `patchwork-parser`
-  - [ ] Return `ControlState::Return(Value::Null)` for now
-  - [ ] Log AST to stderr for debugging
+- [x] Implement `Interpreter::eval(code: &str)` stub
+  - [x] Parse code using `patchwork-parser`
+  - [x] Return `ControlState::Return(Value::Null)` for now
+  - [x] Log AST to stderr for debugging
 
-- [ ] Implement `Interpreter::resume(value: Value)` stub
-  - [ ] Return error "not yet implemented"
+- [x] Implement `Interpreter::resume(value: Value)` stub
+  - [x] Return error "not yet implemented"
 
 ### Testing
 
@@ -100,14 +99,14 @@ Build an ACP proxy that interprets Patchwork code in real-time, enabling a "supe
 
 ### Value System
 
-- [ ] Define `Value` enum in `patchwork-eval`
-  - [ ] `Null`, `String(String)`, `Number(f64)`, `Boolean(bool)`
-  - [ ] `Array(Vec<Value>)`, `Object(HashMap<String, Value>)`
-  - [ ] Implement `Display` for debugging
+- [x] Define `Value` enum in `patchwork-eval`
+  - [x] `Null`, `String(String)`, `Number(f64)`, `Boolean(bool)`
+  - [x] `Array(Vec<Value>)`, `Object(HashMap<String, Value>)`
+  - [x] Implement `Display` for debugging
 
 - [ ] Implement type conversions
-  - [ ] `Value::to_string()` for string coercion
-  - [ ] `Value::to_bool()` for boolean coercion
+  - [x] `Value::to_string()` for string coercion
+  - [x] `Value::to_bool()` for boolean coercion
   - [ ] `Value::from_json()` for parsing JSON
 
 ### Runtime Environment
