@@ -66,6 +66,7 @@ impl ControlState {
 ///
 /// Executes Patchwork code with the ability to suspend at `think` blocks,
 /// allowing external systems to provide LLM responses before resuming.
+#[derive(Debug, Clone)]
 pub struct Interpreter {
     /// Current control state.
     state: ControlState,
@@ -129,8 +130,8 @@ impl Interpreter {
 
                 // Execute the program - look for the __main__ skill or evaluate items
                 match self.execute_program(&ast) {
-                    Ok(value) => {
-                        self.state = ControlState::Return(value);
+                    Ok(state) => {
+                        self.state = state;
                         Ok(&self.state)
                     }
                     Err(e) => {
@@ -149,7 +150,7 @@ impl Interpreter {
     }
 
     /// Execute a parsed program.
-    fn execute_program(&mut self, program: &patchwork_parser::Program) -> crate::Result<Value> {
+    fn execute_program(&mut self, program: &patchwork_parser::Program) -> crate::Result<ControlState> {
         use patchwork_parser::Item;
 
         // Look for __main__ skill (from wrapped block) or execute items
@@ -157,13 +158,11 @@ impl Interpreter {
             match item {
                 Item::Skill(skill) if skill.name == "__main__" => {
                     // Execute the main skill's body
-                    return eval::eval_block(&skill.body, &mut self.runtime)
-                        .map_err(|e| e);
+                    return eval::eval_block(&skill.body, &mut self.runtime);
                 }
                 Item::Function(func) if func.name == "__main__" => {
                     // Execute the main function's body
-                    return eval::eval_block(&func.body, &mut self.runtime)
-                        .map_err(|e| e);
+                    return eval::eval_block(&func.body, &mut self.runtime);
                 }
                 _ => {
                     // Other items (imports, type decls, etc.) - currently ignored
@@ -172,21 +171,17 @@ impl Interpreter {
             }
         }
 
-        // No __main__ found, evaluate as program items (Phase 2 stub)
+        // No __main__ found, evaluate as program items
         eval::eval_program(program, &mut self.runtime)
-            .map(|state| match state {
-                ControlState::Return(v) => v,
-                _ => Value::Null,
-            })
     }
 
     /// Evaluate a single expression directly (for testing).
-    pub fn eval_expr(&mut self, expr: &Expr) -> crate::Result<Value> {
+    pub fn eval_expr(&mut self, expr: &Expr) -> crate::Result<ControlState> {
         eval::eval_expr(expr, &mut self.runtime)
     }
 
     /// Evaluate a single statement directly (for testing).
-    pub fn eval_stmt(&mut self, stmt: &Statement) -> crate::Result<Value> {
+    pub fn eval_stmt(&mut self, stmt: &Statement) -> crate::Result<ControlState> {
         eval::eval_statement(stmt, &mut self.runtime)
     }
 
@@ -422,6 +417,36 @@ mod tests {
             assert_eq!(s, "Hello world!");
         } else {
             panic!("Expected Return(String(\"Hello world!\")), got {:?}", interp.state());
+        }
+    }
+
+    #[test]
+    fn test_think_block_yields() {
+        let mut interp = Interpreter::new();
+        // Note: Parser doesn't preserve whitespace perfectly in prompt blocks
+        // This will be improved in later phases
+        let code = r#"{
+            var topic = "Rust"
+            think {
+                Explain $topic in one sentence.
+            }
+        }"#;
+        let result = interp.eval(code);
+        assert!(result.is_ok(), "Eval failed: {:?}", result);
+
+        // Should yield with the interpolated prompt
+        match interp.state() {
+            ControlState::Yield { op, prompt, bindings, expect } => {
+                assert_eq!(*op, LlmOp::Think);
+                // Parser currently doesn't preserve all whitespace, so we get:
+                assert!(prompt.contains("Explain"));
+                assert!(prompt.contains("Rust"));
+                assert!(prompt.contains("in one sentence"));
+                assert_eq!(expect, "string");
+                // Check that 'topic' is in bindings
+                assert_eq!(bindings.get("topic"), Some(&Value::String("Rust".to_string())));
+            }
+            other => panic!("Expected Yield state, got {:?}", other),
         }
     }
 }

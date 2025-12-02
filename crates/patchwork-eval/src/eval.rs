@@ -5,16 +5,29 @@ use std::process::Command;
 
 use patchwork_parser::ast::{
     Block, BinOp, CommandArg, Expr, ObjectPatternField, Pattern, Program,
-    RedirectOp, Statement, StringLiteral, StringPart, UnOp,
+    RedirectOp, Statement, StringLiteral, StringPart, UnOp, PromptBlock, PromptItem,
 };
 
 use crate::error::Error;
 use crate::runtime::Runtime;
 use crate::value::Value;
-use crate::interpreter::ControlState;
+use crate::interpreter::{ControlState, LlmOp, Bindings};
 
-/// Result type for evaluation operations.
-pub type EvalResult = Result<Value, Error>;
+/// Result type for evaluation operations - now returns ControlState.
+pub type EvalResult = Result<ControlState, Error>;
+
+/// Macro to extract a value from a ControlState or early-return with Yield/Throw.
+///
+/// Similar to Rust's `try!` macro, but for control flow states instead of errors.
+/// Extracts the value from `Return(v)`, or propagates `Yield`/`Throw` states up.
+macro_rules! try_eval {
+    ($state:expr) => {
+        match $state {
+            ControlState::Return(v) => v,
+            other => return Ok(other),
+        }
+    };
+}
 
 /// Evaluate a complete program.
 pub fn eval_program(program: &Program, runtime: &mut Runtime) -> Result<ControlState, Error> {
@@ -34,11 +47,19 @@ pub fn eval_block(block: &Block, runtime: &mut Runtime) -> EvalResult {
     let mut result = Value::Null;
 
     for stmt in &block.statements {
-        result = eval_statement(stmt, runtime)?;
+        let state = eval_statement(stmt, runtime)?;
+        // Check if we need to propagate a non-Return state (Yield, Throw)
+        match state {
+            ControlState::Return(v) => result = v,
+            other => {
+                runtime.pop_scope();
+                return Ok(other);
+            }
+        }
     }
 
     runtime.pop_scope();
-    Ok(result)
+    Ok(ControlState::Return(result))
 }
 
 /// Evaluate a single statement.
@@ -46,28 +67,30 @@ pub fn eval_statement(stmt: &Statement, runtime: &mut Runtime) -> EvalResult {
     match stmt {
         Statement::VarDecl { pattern, init } => {
             let value = match init {
-                Some(expr) => eval_expr(expr, runtime)?,
+                Some(expr) => try_eval!(eval_expr(expr, runtime)?),
                 None => Value::Null,
             };
             bind_pattern(pattern, value, runtime)?;
-            Ok(Value::Null)
+            Ok(ControlState::Return(Value::Null))
         }
 
         Statement::Expr(expr) => eval_expr(expr, runtime),
 
         Statement::If { condition, then_block, else_block } => {
-            let cond_value = eval_expr(condition, runtime)?;
+            let cond_value = try_eval!(eval_expr(condition, runtime)?);
+
             if cond_value.to_bool() {
                 eval_block(then_block, runtime)
             } else if let Some(else_blk) = else_block {
                 eval_block(else_blk, runtime)
             } else {
-                Ok(Value::Null)
+                Ok(ControlState::Return(Value::Null))
             }
         }
 
         Statement::ForIn { var, iter, body } => {
-            let iter_value = eval_expr(iter, runtime)?;
+            let iter_value = try_eval!(eval_expr(iter, runtime)?);
+
             let items = match iter_value {
                 Value::Array(arr) => arr,
                 Value::String(s) => {
@@ -85,35 +108,48 @@ pub fn eval_statement(stmt: &Statement, runtime: &mut Runtime) -> EvalResult {
             for item in items {
                 runtime.push_scope();
                 runtime.define_var(var, item).map_err(Error::Runtime)?;
-                result = eval_block(body, runtime)?;
+                let state = eval_block(body, runtime)?;
                 runtime.pop_scope();
+
+                // Propagate Yield or Throw
+                match state {
+                    ControlState::Return(v) => result = v,
+                    other => return Ok(other),
+                }
             }
-            Ok(result)
+            Ok(ControlState::Return(result))
         }
 
         Statement::While { condition, body } => {
             let mut result = Value::Null;
             loop {
-                let cond_value = eval_expr(condition, runtime)?;
+                let cond_value = try_eval!(eval_expr(condition, runtime)?);
+
                 if !cond_value.to_bool() {
                     break;
                 }
-                result = eval_block(body, runtime)?;
+
+                let state = eval_block(body, runtime)?;
+                // Propagate Yield or Throw
+                match state {
+                    ControlState::Return(v) => result = v,
+                    other => return Ok(other),
+                }
             }
-            Ok(result)
+            Ok(ControlState::Return(result))
         }
 
         Statement::Return(expr) => {
             let value = match expr {
-                Some(e) => eval_expr(e, runtime)?,
+                Some(e) => try_eval!(eval_expr(e, runtime)?),
                 None => Value::Null,
             };
             // For now, just return the value. Proper return handling
             // will need control flow tracking.
-            Ok(value)
+            Ok(ControlState::Return(value))
         }
 
-        Statement::Succeed => Ok(Value::Null),
+        Statement::Succeed => Ok(ControlState::Return(Value::Null)),
 
         Statement::Break => {
             // Break handling will need control flow tracking
@@ -122,7 +158,7 @@ pub fn eval_statement(stmt: &Statement, runtime: &mut Runtime) -> EvalResult {
 
         Statement::TypeDecl { .. } => {
             // Type declarations are compile-time only
-            Ok(Value::Null)
+            Ok(ControlState::Return(Value::Null))
         }
     }
 }
@@ -184,34 +220,41 @@ fn bind_object_pattern_field(
 pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> EvalResult {
     match expr {
         Expr::Identifier(name) => {
-            runtime.get_var(name)
+            let value = runtime.get_var(name)
                 .cloned()
-                .ok_or_else(|| Error::Runtime(format!("Undefined variable: {}", name)))
+                .ok_or_else(|| Error::Runtime(format!("Undefined variable: {}", name)))?;
+            Ok(ControlState::Return(value))
         }
 
         Expr::Number(s) => {
             let n: f64 = s.parse()
                 .map_err(|_| Error::Runtime(format!("Invalid number: {}", s)))?;
-            Ok(Value::Number(n))
+            Ok(ControlState::Return(Value::Number(n)))
         }
 
         Expr::String(string_lit) => eval_string_literal(string_lit, runtime),
 
-        Expr::True => Ok(Value::Boolean(true)),
-        Expr::False => Ok(Value::Boolean(false)),
+        Expr::True => Ok(ControlState::Return(Value::Boolean(true))),
+        Expr::False => Ok(ControlState::Return(Value::Boolean(false))),
 
         Expr::Array(items) => {
-            let values: Result<Vec<_>, _> = items.iter()
-                .map(|e| eval_expr(e, runtime))
-                .collect();
-            Ok(Value::Array(values?))
+            let mut values = Vec::new();
+            for item in items {
+                let state = eval_expr(item, runtime)?;
+                let value = try_eval!(state);
+                values.push(value);
+            }
+            Ok(ControlState::Return(Value::Array(values)))
         }
 
         Expr::Object(fields) => {
             let mut map = std::collections::HashMap::new();
             for field in fields {
                 let value = match &field.value {
-                    Some(expr) => eval_expr(expr, runtime)?,
+                    Some(expr) => {
+                        let state = eval_expr(expr, runtime)?;
+                        try_eval!(state)
+                    }
                     None => {
                         // Shorthand: {x} means {x: x}
                         runtime.get_var(field.key)
@@ -221,7 +264,7 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> EvalResult {
                 };
                 map.insert(field.key.to_string(), value);
             }
-            Ok(Value::Object(map))
+            Ok(ControlState::Return(Value::Object(map)))
         }
 
         Expr::Binary { op, left, right } => eval_binary(op, left, right, runtime),
@@ -231,10 +274,12 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> EvalResult {
         Expr::Call { callee, args } => eval_call(callee, args, runtime),
 
         Expr::Member { object, field } => {
-            let obj_value = eval_expr(object, runtime)?;
+            let obj_state = eval_expr(object, runtime)?;
+            let obj_value = try_eval!(obj_state);
+
             match obj_value {
                 Value::Object(map) => {
-                    Ok(map.get(*field).cloned().unwrap_or(Value::Null))
+                    Ok(ControlState::Return(map.get(*field).cloned().unwrap_or(Value::Null)))
                 }
                 other => Err(Error::Runtime(format!(
                     "Cannot access field '{}' on {}", field, type_name(&other)
@@ -243,15 +288,19 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> EvalResult {
         }
 
         Expr::Index { object, index } => {
-            let obj_value = eval_expr(object, runtime)?;
-            let idx_value = eval_expr(index, runtime)?;
+            let obj_state = eval_expr(object, runtime)?;
+            let obj_value = try_eval!(obj_state);
+
+            let idx_state = eval_expr(index, runtime)?;
+            let idx_value = try_eval!(idx_state);
+
             match (obj_value, idx_value) {
                 (Value::Array(arr), Value::Number(n)) => {
                     let i = n as usize;
-                    Ok(arr.get(i).cloned().unwrap_or(Value::Null))
+                    Ok(ControlState::Return(arr.get(i).cloned().unwrap_or(Value::Null)))
                 }
                 (Value::Object(map), Value::String(key)) => {
-                    Ok(map.get(&key).cloned().unwrap_or(Value::Null))
+                    Ok(ControlState::Return(map.get(&key).cloned().unwrap_or(Value::Null)))
                 }
                 (obj, idx) => Err(Error::Runtime(format!(
                     "Cannot index {} with {}", type_name(&obj), type_name(&idx)
@@ -271,10 +320,9 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> EvalResult {
             eval_expr(inner, runtime)
         }
 
-        Expr::Think(_) | Expr::Ask(_) => {
-            // These will yield to the interpreter - for now error
-            Err(Error::Runtime("think/ask blocks not yet implemented".to_string()))
-        }
+        Expr::Think(prompt_block) => eval_think_block(prompt_block, LlmOp::Think, runtime),
+
+        Expr::Ask(prompt_block) => eval_think_block(prompt_block, LlmOp::Ask, runtime),
 
         Expr::Do(block) => eval_block(block, runtime),
 
@@ -282,33 +330,39 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> EvalResult {
 
         Expr::CommandSubst(inner) => {
             // Execute inner expression as command, return stdout
-            let result = eval_expr(inner, runtime)?;
+            let state = eval_expr(inner, runtime)?;
+            let result = try_eval!(state);
+
             match result {
-                Value::String(s) => Ok(Value::String(s.trim_end_matches('\n').to_string())),
-                other => Ok(other),
+                Value::String(s) => Ok(ControlState::Return(Value::String(s.trim_end_matches('\n').to_string()))),
+                other => Ok(ControlState::Return(other)),
             }
         }
 
         Expr::ShellPipe { left, right } => {
             // For now, simplified pipe - just execute right with left's output
             // A proper implementation would use actual pipes
-            let _left_result = eval_expr(left, runtime)?;
+            let _left_state = eval_expr(left, runtime)?;
             eval_expr(right, runtime)
         }
 
         Expr::ShellAnd { left, right } => {
-            let left_result = eval_expr(left, runtime)?;
+            let left_state = eval_expr(left, runtime)?;
+            let left_result = try_eval!(left_state);
+
             if left_result.to_bool() {
                 eval_expr(right, runtime)
             } else {
-                Ok(left_result)
+                Ok(ControlState::Return(left_result))
             }
         }
 
         Expr::ShellOr { left, right } => {
-            let left_result = eval_expr(left, runtime)?;
+            let left_state = eval_expr(left, runtime)?;
+            let left_result = try_eval!(left_state);
+
             if left_result.to_bool() {
-                Ok(left_result)
+                Ok(ControlState::Return(left_result))
             } else {
                 eval_expr(right, runtime)
             }
@@ -327,55 +381,112 @@ fn eval_string_literal(lit: &StringLiteral, runtime: &mut Runtime) -> EvalResult
         match part {
             StringPart::Text(s) => result.push_str(s),
             StringPart::Interpolation(expr) => {
-                let value = eval_expr(expr, runtime)?;
+                let state = eval_expr(expr, runtime)?;
+                let value = try_eval!(state);
                 result.push_str(&value.to_string_value());
             }
         }
     }
-    Ok(Value::String(result))
+    Ok(ControlState::Return(Value::String(result)))
+}
+
+/// Evaluate a think or ask block, yielding control with the interpolated prompt.
+fn eval_think_block(prompt_block: &PromptBlock, op: LlmOp, runtime: &mut Runtime) -> EvalResult {
+    // Interpolate the prompt, gathering variable bindings
+    let mut prompt_text = String::new();
+    let mut bindings = Bindings::new();
+
+    for item in &prompt_block.items {
+        match item {
+            PromptItem::Text(text) => {
+                prompt_text.push_str(text);
+            }
+            PromptItem::Interpolation(expr) => {
+                let state = eval_expr(expr, runtime)?;
+                let value = try_eval!(state);
+
+                // Add to prompt text
+                prompt_text.push_str(&value.to_string_value());
+
+                // Track variable if it's a simple identifier
+                if let Expr::Identifier(name) = expr {
+                    bindings.insert(name.to_string(), value);
+                }
+            }
+            PromptItem::Code(block) => {
+                // Embedded code blocks - execute them
+                let state = eval_block(block, runtime)?;
+                // If the code yields or throws, propagate it
+                match state {
+                    ControlState::Return(_) => {
+                        // Code block executed successfully, continue
+                    }
+                    other => return Ok(other),
+                }
+            }
+        }
+    }
+
+    // For now, expect string responses
+    let expect = "string".to_string();
+
+    // Return Yield state
+    Ok(ControlState::Yield {
+        op,
+        prompt: prompt_text,
+        bindings,
+        expect,
+    })
 }
 
 /// Evaluate a binary operation.
 fn eval_binary(op: &BinOp, left: &Expr, right: &Expr, runtime: &mut Runtime) -> EvalResult {
     // Handle assignment specially
     if let BinOp::Assign = op {
-        let value = eval_expr(right, runtime)?;
+        let state = eval_expr(right, runtime)?;
+        let value = try_eval!(state);
+
         match left {
             Expr::Identifier(name) => {
                 runtime.set_var(name, value.clone()).map_err(Error::Runtime)?;
-                return Ok(value);
+                return Ok(ControlState::Return(value));
             }
             _ => return Err(Error::Runtime("Invalid assignment target".to_string())),
         }
     }
 
-    let left_val = eval_expr(left, runtime)?;
-    let right_val = eval_expr(right, runtime)?;
+    let left_state = eval_expr(left, runtime)?;
+    let left_val = try_eval!(left_state);
 
-    match op {
+    let right_state = eval_expr(right, runtime)?;
+    let right_val = try_eval!(right_state);
+
+    let result = match op {
         BinOp::Add => {
             match (&left_val, &right_val) {
-                (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
-                (Value::String(a), Value::String(b)) => Ok(Value::String(format!("{}{}", a, b))),
-                (Value::String(a), b) => Ok(Value::String(format!("{}{}", a, b.to_string_value()))),
-                (a, Value::String(b)) => Ok(Value::String(format!("{}{}", a.to_string_value(), b))),
-                _ => Err(Error::Runtime(format!(
-                    "Cannot add {} and {}", type_name(&left_val), type_name(&right_val)
-                ))),
+                (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+                (Value::String(a), Value::String(b)) => Value::String(format!("{}{}", a, b)),
+                (Value::String(a), b) => Value::String(format!("{}{}", a, b.to_string_value())),
+                (a, Value::String(b)) => Value::String(format!("{}{}", a.to_string_value(), b)),
+                _ => {
+                    return Err(Error::Runtime(format!(
+                        "Cannot add {} and {}", type_name(&left_val), type_name(&right_val)
+                    )))
+                }
             }
         }
-        BinOp::Sub => num_op(&left_val, &right_val, |a, b| a - b),
-        BinOp::Mul => num_op(&left_val, &right_val, |a, b| a * b),
-        BinOp::Div => num_op(&left_val, &right_val, |a, b| a / b),
-        BinOp::Eq => Ok(Value::Boolean(values_equal(&left_val, &right_val))),
-        BinOp::NotEq => Ok(Value::Boolean(!values_equal(&left_val, &right_val))),
-        BinOp::Lt => compare_values(&left_val, &right_val, |ord| ord.is_lt()),
-        BinOp::Gt => compare_values(&left_val, &right_val, |ord| ord.is_gt()),
-        BinOp::And => Ok(Value::Boolean(left_val.to_bool() && right_val.to_bool())),
-        BinOp::Or => Ok(Value::Boolean(left_val.to_bool() || right_val.to_bool())),
+        BinOp::Sub => num_op(&left_val, &right_val, |a, b| a - b)?,
+        BinOp::Mul => num_op(&left_val, &right_val, |a, b| a * b)?,
+        BinOp::Div => num_op(&left_val, &right_val, |a, b| a / b)?,
+        BinOp::Eq => Value::Boolean(values_equal(&left_val, &right_val)),
+        BinOp::NotEq => Value::Boolean(!values_equal(&left_val, &right_val)),
+        BinOp::Lt => compare_values(&left_val, &right_val, |ord| ord.is_lt())?,
+        BinOp::Gt => compare_values(&left_val, &right_val, |ord| ord.is_gt())?,
+        BinOp::And => Value::Boolean(left_val.to_bool() && right_val.to_bool()),
+        BinOp::Or => Value::Boolean(left_val.to_bool() || right_val.to_bool()),
         BinOp::Pipe => {
             // Should be handled as ShellPipe, not BinOp::Pipe
-            Err(Error::Runtime("Pipe operator not supported here".to_string()))
+            return Err(Error::Runtime("Pipe operator not supported here".to_string()))
         }
         BinOp::Range => {
             // Create a range array
@@ -386,17 +497,19 @@ fn eval_binary(op: &BinOp, left: &Expr, right: &Expr, runtime: &mut Runtime) -> 
                     let range: Vec<Value> = (start..=end)
                         .map(|n| Value::Number(n as f64))
                         .collect();
-                    Ok(Value::Array(range))
+                    Value::Array(range)
                 }
-                _ => Err(Error::Runtime("Range requires numbers".to_string())),
+                _ => return Err(Error::Runtime("Range requires numbers".to_string())),
             }
         }
         BinOp::Assign => unreachable!("handled above"),
-    }
+    };
+
+    Ok(ControlState::Return(result))
 }
 
 /// Numeric binary operation helper.
-fn num_op(left: &Value, right: &Value, op: fn(f64, f64) -> f64) -> EvalResult {
+fn num_op(left: &Value, right: &Value, op: fn(f64, f64) -> f64) -> Result<Value, Error> {
     match (left, right) {
         (Value::Number(a), Value::Number(b)) => Ok(Value::Number(op(*a, *b))),
         _ => Err(Error::Runtime(format!(
@@ -421,7 +534,7 @@ fn values_equal(a: &Value, b: &Value) -> bool {
 }
 
 /// Compare two values.
-fn compare_values(a: &Value, b: &Value, pred: fn(std::cmp::Ordering) -> bool) -> EvalResult {
+fn compare_values(a: &Value, b: &Value, pred: fn(std::cmp::Ordering) -> bool) -> Result<Value, Error> {
     match (a, b) {
         (Value::Number(a), Value::Number(b)) => {
             Ok(Value::Boolean(pred(a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))))
@@ -437,12 +550,14 @@ fn compare_values(a: &Value, b: &Value, pred: fn(std::cmp::Ordering) -> bool) ->
 
 /// Evaluate a unary operation.
 fn eval_unary(op: &UnOp, operand: &Expr, runtime: &mut Runtime) -> EvalResult {
-    let value = eval_expr(operand, runtime)?;
+    let state = eval_expr(operand, runtime)?;
+    let value = try_eval!(state);
+
     match op {
-        UnOp::Not => Ok(Value::Boolean(!value.to_bool())),
+        UnOp::Not => Ok(ControlState::Return(Value::Boolean(!value.to_bool()))),
         UnOp::Neg => {
             match value {
-                Value::Number(n) => Ok(Value::Number(-n)),
+                Value::Number(n) => Ok(ControlState::Return(Value::Number(-n))),
                 _ => Err(Error::Runtime(format!("Cannot negate {}", type_name(&value)))),
             }
         }
@@ -454,10 +569,12 @@ fn eval_unary(op: &UnOp, operand: &Expr, runtime: &mut Runtime) -> EvalResult {
 fn eval_call(callee: &Expr, args: &[Expr], runtime: &mut Runtime) -> EvalResult {
     // Check for builtin functions
     if let Expr::Identifier(name) = callee {
-        let arg_values: Result<Vec<_>, _> = args.iter()
-            .map(|e| eval_expr(e, runtime))
-            .collect();
-        let arg_values = arg_values?;
+        let mut arg_values = Vec::new();
+        for arg in args {
+            let state = eval_expr(arg, runtime)?;
+            let value = try_eval!(state);
+            arg_values.push(value);
+        }
 
         return eval_builtin(name, &arg_values, runtime);
     }
@@ -468,13 +585,13 @@ fn eval_call(callee: &Expr, args: &[Expr], runtime: &mut Runtime) -> EvalResult 
 
 /// Evaluate a builtin function call.
 fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
-    match name {
+    let result = match name {
         "cat" => {
             // cat(value) - serialize to pretty JSON
             if args.len() != 1 {
                 return Err(Error::Runtime("cat() takes exactly 1 argument".to_string()));
             }
-            Ok(Value::String(args[0].to_json()))
+            Value::String(args[0].to_json())
         }
 
         "json" => {
@@ -483,7 +600,7 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
                 return Err(Error::Runtime("json() takes exactly 1 argument".to_string()));
             }
             let text = args[0].to_string_value();
-            Value::from_json(&text).map_err(Error::Runtime)
+            Value::from_json(&text).map_err(Error::Runtime)?
         }
 
         "print" => {
@@ -495,7 +612,7 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
                 print!("{}", arg.to_string_value());
             }
             println!();
-            Ok(Value::Null)
+            Value::Null
         }
 
         "len" => {
@@ -503,10 +620,10 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
                 return Err(Error::Runtime("len() takes exactly 1 argument".to_string()));
             }
             match &args[0] {
-                Value::Array(arr) => Ok(Value::Number(arr.len() as f64)),
-                Value::String(s) => Ok(Value::Number(s.len() as f64)),
-                Value::Object(obj) => Ok(Value::Number(obj.len() as f64)),
-                other => Err(Error::Runtime(format!("Cannot get length of {}", type_name(other)))),
+                Value::Array(arr) => Value::Number(arr.len() as f64),
+                Value::String(s) => Value::Number(s.len() as f64),
+                Value::Object(obj) => Value::Number(obj.len() as f64),
+                other => return Err(Error::Runtime(format!("Cannot get length of {}", type_name(other)))),
             }
         }
 
@@ -519,9 +636,9 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
                     let keys: Vec<Value> = obj.keys()
                         .map(|k| Value::String(k.clone()))
                         .collect();
-                    Ok(Value::Array(keys))
+                    Value::Array(keys)
                 }
-                other => Err(Error::Runtime(format!("Cannot get keys of {}", type_name(other)))),
+                other => return Err(Error::Runtime(format!("Cannot get keys of {}", type_name(other)))),
             }
         }
 
@@ -532,9 +649,9 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
             match &args[0] {
                 Value::Object(obj) => {
                     let values: Vec<Value> = obj.values().cloned().collect();
-                    Ok(Value::Array(values))
+                    Value::Array(values)
                 }
-                other => Err(Error::Runtime(format!("Cannot get values of {}", type_name(other)))),
+                other => return Err(Error::Runtime(format!("Cannot get values of {}", type_name(other)))),
             }
         }
 
@@ -542,7 +659,7 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
             if args.len() != 1 {
                 return Err(Error::Runtime("typeof() takes exactly 1 argument".to_string()));
             }
-            Ok(Value::String(type_name(&args[0]).to_string()))
+            Value::String(type_name(&args[0]).to_string())
         }
 
         "read" => {
@@ -553,7 +670,7 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
             let path = resolve_path(&args[0].to_string_value(), runtime);
             let contents = fs::read_to_string(&path)
                 .map_err(|e| Error::Runtime(format!("Failed to read {}: {}", path.display(), e)))?;
-            Ok(Value::String(contents))
+            Value::String(contents)
         }
 
         "write" => {
@@ -565,11 +682,13 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> EvalResult {
             let content = args[1].to_string_value();
             fs::write(&path, content)
                 .map_err(|e| Error::Runtime(format!("Failed to write {}: {}", path.display(), e)))?;
-            Ok(Value::Null)
+            Value::Null
         }
 
-        _ => Err(Error::Runtime(format!("Unknown function: {}", name))),
-    }
+        _ => return Err(Error::Runtime(format!("Unknown function: {}", name))),
+    };
+
+    Ok(ControlState::Return(result))
 }
 
 /// Evaluate a bare shell command.
@@ -579,7 +698,8 @@ fn eval_bare_command(name: &str, args: &[CommandArg], runtime: &mut Runtime) -> 
         match arg {
             CommandArg::Literal(s) => cmd_args.push(s.to_string()),
             CommandArg::String(string_lit) => {
-                let value = eval_string_literal(string_lit, runtime)?;
+                let state = eval_string_literal(string_lit, runtime)?;
+                let value = try_eval!(state);
                 cmd_args.push(value.to_string_value());
             }
         }
@@ -615,10 +735,10 @@ fn exec_command(name: &str, args: &[String], runtime: &Runtime) -> EvalResult {
             .filter(|l| !l.is_empty())
             .map(|l| Value::String(l.to_string()))
             .collect();
-        return Ok(Value::Array(lines));
+        return Ok(ControlState::Return(Value::Array(lines)));
     }
 
-    Ok(Value::String(stdout.into_owned()))
+    Ok(ControlState::Return(Value::String(stdout.into_owned())))
 }
 
 /// Evaluate a shell redirect expression.
@@ -632,24 +752,29 @@ fn eval_shell_redirect(
         RedirectOp::In => {
             // Read from file and use as input
             // For `json < "file.json"`, we read the file and parse as JSON
-            let target_value = eval_expr(target, runtime)?;
+            let target_state = eval_expr(target, runtime)?;
+            let target_value = try_eval!(target_state);
             let path = resolve_path(&target_value.to_string_value(), runtime);
             let contents = fs::read_to_string(&path)
                 .map_err(|e| Error::Runtime(format!("Failed to read {}: {}", path.display(), e)))?;
 
             // Check if the command is 'json' for JSON parsing
             if let Expr::Identifier("json") = command {
-                return Value::from_json(&contents).map_err(Error::Runtime);
+                let value = Value::from_json(&contents).map_err(Error::Runtime)?;
+                return Ok(ControlState::Return(value));
             }
 
             // Otherwise, just return the file contents
-            Ok(Value::String(contents))
+            Ok(ControlState::Return(Value::String(contents)))
         }
 
         RedirectOp::Out => {
             // Write command output to file
-            let cmd_result = eval_expr(command, runtime)?;
-            let target_value = eval_expr(target, runtime)?;
+            let cmd_state = eval_expr(command, runtime)?;
+            let cmd_result = try_eval!(cmd_state);
+
+            let target_state = eval_expr(target, runtime)?;
+            let target_value = try_eval!(target_state);
             let path = resolve_path(&target_value.to_string_value(), runtime);
 
             // If the command was cat(), write as JSON
@@ -666,13 +791,16 @@ fn eval_shell_redirect(
             fs::write(&path, content)
                 .map_err(|e| Error::Runtime(format!("Failed to write {}: {}", path.display(), e)))?;
 
-            Ok(Value::Null)
+            Ok(ControlState::Return(Value::Null))
         }
 
         RedirectOp::Append => {
             // Append command output to file
-            let cmd_result = eval_expr(command, runtime)?;
-            let target_value = eval_expr(target, runtime)?;
+            let cmd_state = eval_expr(command, runtime)?;
+            let cmd_result = try_eval!(cmd_state);
+
+            let target_state = eval_expr(target, runtime)?;
+            let target_value = try_eval!(target_state);
             let path = resolve_path(&target_value.to_string_value(), runtime);
 
             let existing = fs::read_to_string(&path).unwrap_or_default();
@@ -681,7 +809,7 @@ fn eval_shell_redirect(
             fs::write(&path, content)
                 .map_err(|e| Error::Runtime(format!("Failed to write {}: {}", path.display(), e)))?;
 
-            Ok(Value::Null)
+            Ok(ControlState::Return(Value::Null))
         }
 
         RedirectOp::ErrOut | RedirectOp::ErrToOut => {
@@ -725,8 +853,8 @@ mod tests {
     fn test_eval_number() {
         let mut rt = make_runtime();
         let expr = Expr::Number("42");
-        let result = eval_expr(&expr, &mut rt).unwrap();
-        assert_eq!(result, Value::Number(42.0));
+        let state = eval_expr(&expr, &mut rt).unwrap();
+        assert!(matches!(state, ControlState::Return(Value::Number(n)) if n == 42.0));
     }
 
     #[test]
@@ -735,15 +863,18 @@ mod tests {
         let expr = Expr::String(StringLiteral {
             parts: vec![StringPart::Text("hello")],
         });
-        let result = eval_expr(&expr, &mut rt).unwrap();
-        assert_eq!(result, Value::String("hello".to_string()));
+        let state = eval_expr(&expr, &mut rt).unwrap();
+        assert!(matches!(state, ControlState::Return(Value::String(s)) if s == "hello"));
     }
 
     #[test]
     fn test_eval_boolean() {
         let mut rt = make_runtime();
-        assert_eq!(eval_expr(&Expr::True, &mut rt).unwrap(), Value::Boolean(true));
-        assert_eq!(eval_expr(&Expr::False, &mut rt).unwrap(), Value::Boolean(false));
+        let state = eval_expr(&Expr::True, &mut rt).unwrap();
+        assert!(matches!(state, ControlState::Return(Value::Boolean(true))));
+
+        let state = eval_expr(&Expr::False, &mut rt).unwrap();
+        assert!(matches!(state, ControlState::Return(Value::Boolean(false))));
     }
 
     #[test]
@@ -754,12 +885,16 @@ mod tests {
             Expr::Number("2"),
             Expr::Number("3"),
         ]);
-        let result = eval_expr(&expr, &mut rt).unwrap();
-        assert_eq!(result, Value::Array(vec![
-            Value::Number(1.0),
-            Value::Number(2.0),
-            Value::Number(3.0),
-        ]));
+        let state = eval_expr(&expr, &mut rt).unwrap();
+        if let ControlState::Return(Value::Array(arr)) = state {
+            assert_eq!(arr, vec![
+                Value::Number(1.0),
+                Value::Number(2.0),
+                Value::Number(3.0),
+            ]);
+        } else {
+            panic!("Expected Return(Array)");
+        }
     }
 
     #[test]
@@ -770,8 +905,8 @@ mod tests {
             left: Box::new(Expr::Number("1")),
             right: Box::new(Expr::Number("2")),
         };
-        let result = eval_expr(&expr, &mut rt).unwrap();
-        assert_eq!(result, Value::Number(3.0));
+        let state = eval_expr(&expr, &mut rt).unwrap();
+        assert!(matches!(state, ControlState::Return(Value::Number(n)) if n == 3.0));
     }
 
     #[test]
@@ -786,8 +921,8 @@ mod tests {
                 parts: vec![StringPart::Text("world")],
             })),
         };
-        let result = eval_expr(&expr, &mut rt).unwrap();
-        assert_eq!(result, Value::String("hello world".to_string()));
+        let state = eval_expr(&expr, &mut rt).unwrap();
+        assert!(matches!(state, ControlState::Return(Value::String(s)) if s == "hello world"));
     }
 
     #[test]
@@ -798,23 +933,23 @@ mod tests {
                 .into_iter()
                 .collect(),
         );
-        let result = eval_builtin("cat", &[value], &rt).unwrap();
-        if let Value::String(s) = result {
+        let state = eval_builtin("cat", &[value], &rt).unwrap();
+        if let ControlState::Return(Value::String(s)) = state {
             assert!(s.contains("\"name\""));
             assert!(s.contains("\"test\""));
         } else {
-            panic!("Expected string");
+            panic!("Expected Return(String)");
         }
     }
 
     #[test]
     fn test_eval_builtin_json() {
         let rt = Runtime::default();
-        let result = eval_builtin("json", &[Value::String(r#"{"x": 1}"#.to_string())], &rt).unwrap();
-        if let Value::Object(obj) = result {
+        let state = eval_builtin("json", &[Value::String(r#"{"x": 1}"#.to_string())], &rt).unwrap();
+        if let ControlState::Return(Value::Object(obj)) = state {
             assert_eq!(obj.get("x"), Some(&Value::Number(1.0)));
         } else {
-            panic!("Expected object");
+            panic!("Expected Return(Object)");
         }
     }
 }

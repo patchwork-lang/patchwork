@@ -1,38 +1,37 @@
 {
-  "current_focus": "Phase 2 Complete - Patchwork ACP interpreter",
+  "current_focus": "Phase 3 LLM Integration - Core evaluation refactoring complete",
   "session_context": {
     "project": "patchwork",
-    "phase": "Phase 2 Complete - ready for Phase 3",
-    "last_work": "Implemented full expression/statement evaluation engine"
+    "phase": "Phase 3: LLM Integration - Evaluation engine complete",
+    "last_work": "Refactored evaluation system to use ControlState throughout, enabling think block suspension"
   },
   "completed_work": [
-    "Created eval.rs with complete expression and statement evaluation",
-    "Created runtime.rs with scoped variable bindings and working directory",
-    "Added Value::from_json() and Value::to_json() for JSON serialization",
-    "Implemented shell command execution via BareCommand",
-    "Implemented file I/O via read(), write(), and shell redirects",
-    "Implemented builtins: cat, json, print, len, keys, values, typeof, read, write",
-    "Added block wrapping (skill __main__) for ACP bare block execution",
-    "26 unit and integration tests passing",
-    "124 total workspace tests passing",
-    "Updated implementation plan with Phase 2 checkmarks"
+    "Refactored entire evaluation system from Result<Value, Error> to Result<ControlState, Error>",
+    "Created try_eval! macro for clean control flow propagation (renamed from unwrap_or_propagate!)",
+    "Implemented eval_think_block() with prompt interpolation and variable binding collection",
+    "Added ControlState::Yield variant to suspend execution at think blocks",
+    "Made Interpreter, Runtime, and all related types Clone-able for session storage",
+    "Created test_think_block_yields() to verify suspension behavior",
+    "All 154 tests passing (up from 124)"
   ],
   "key_technical_decisions": [
-    "Runtime uses Vec<HashMap> for scoped variable bindings with push/pop",
-    "Bare { } blocks wrapped in 'skill __main__()' for valid parsing",
-    "eval.rs handles all expression types including BareCommand, ShellRedirect",
-    "File I/O via builtins read()/write() plus redirect operators",
-    "String interpolation evaluated during string literal processing"
+    "Used try_eval! macro pattern inspired by Rust's try! for control flow propagation",
+    "ControlState propagates through entire eval stack - Yield/Throw states bubble up immediately",
+    "Think blocks collect variable bindings for LLM context",
+    "Prompt interpolation supports $var, ${expr}, and embedded do {} blocks",
+    "Parser whitespace preservation is imperfect - noted for future improvement"
   ],
   "next_steps": [
-    "Phase 3: LLM Integration",
-    "Implement think block evaluation with Yield state",
-    "Implement interpreter suspend/resume mechanism",
-    "Forward think prompts to successor agent",
-    "Extract typed responses from LLM output"
+    "Update ACP proxy to handle Yield states",
+    "Forward prompts to successor agent with type hints",
+    "Implement response extraction from markdown code fences",
+    "Implement resume() mechanism to continue execution with LLM response",
+    "Test think blocks in for-loops with state preservation",
+    "Write comprehensive integration tests"
   ],
   "patterns_noted": [
-    "Integration test test_phase2_demo_simplified validates full workflow",
-    "tempfile crate for isolated test directories"
+    "try_eval! macro enables clean propagation without nested matches",
+    "Cloneable interpreter enables suspend/resume pattern",
+    "ControlState as return type rather than error enables coroutine semantics"
   ]
 }
