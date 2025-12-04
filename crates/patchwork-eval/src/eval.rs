@@ -4,9 +4,9 @@
 //! `Result<Value, Error>`. Exceptions (via `throw`) are modeled as `Error::Exception(Value)`
 //! and propagate using Rust's `?` operator.
 //!
-//! Think blocks will block on channel operations in Phase 5 - for now they return
-//! a placeholder value.
+//! Think blocks block on channel operations waiting for LLM responses from the agent.
 
+use std::collections::HashMap;
 use std::fs;
 use std::process::Command;
 
@@ -15,29 +15,38 @@ use patchwork_parser::ast::{
     RedirectOp, Statement, StringLiteral, StringPart, UnOp, PromptBlock, PromptItem,
 };
 
+use crate::agent::{AgentHandle, ThinkResponse};
 use crate::error::Error;
 use crate::runtime::Runtime;
 use crate::value::Value;
 
 /// Evaluate a complete program.
-pub fn eval_program(program: &Program, runtime: &mut Runtime) -> Result<Value, Error> {
+pub fn eval_program(
+    program: &Program,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     // For now, a program is just a series of items (functions, skills, etc.)
     // In this phase, we're focused on evaluating code blocks, not top-level definitions.
     // The main entry point for ACP is typically a block expression `{ ... }`.
     //
     // If the program contains statements in a block context, evaluate those.
     // For now, return null - actual execution happens via eval_block.
-    let _ = (program, runtime);
+    let _ = (program, runtime, agent);
     Ok(Value::Null)
 }
 
 /// Evaluate a block of statements.
-pub fn eval_block(block: &Block, runtime: &mut Runtime) -> Result<Value, Error> {
+pub fn eval_block(
+    block: &Block,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     runtime.push_scope();
     let mut result = Value::Null;
 
     for stmt in &block.statements {
-        result = eval_statement(stmt, runtime)?;
+        result = eval_statement(stmt, runtime, agent)?;
     }
 
     runtime.pop_scope();
@@ -45,33 +54,37 @@ pub fn eval_block(block: &Block, runtime: &mut Runtime) -> Result<Value, Error> 
 }
 
 /// Evaluate a single statement.
-pub fn eval_statement(stmt: &Statement, runtime: &mut Runtime) -> Result<Value, Error> {
+pub fn eval_statement(
+    stmt: &Statement,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     match stmt {
         Statement::VarDecl { pattern, init } => {
             let value = match init {
-                Some(expr) => eval_expr(expr, runtime)?,
+                Some(expr) => eval_expr(expr, runtime, agent)?,
                 None => Value::Null,
             };
             bind_pattern(pattern, value, runtime)?;
             Ok(Value::Null)
         }
 
-        Statement::Expr(expr) => eval_expr(expr, runtime),
+        Statement::Expr(expr) => eval_expr(expr, runtime, agent),
 
         Statement::If { condition, then_block, else_block } => {
-            let cond_value = eval_expr(condition, runtime)?;
+            let cond_value = eval_expr(condition, runtime, agent)?;
 
             if cond_value.to_bool() {
-                eval_block(then_block, runtime)
+                eval_block(then_block, runtime, agent)
             } else if let Some(else_blk) = else_block {
-                eval_block(else_blk, runtime)
+                eval_block(else_blk, runtime, agent)
             } else {
                 Ok(Value::Null)
             }
         }
 
         Statement::ForIn { var, iter, body } => {
-            let iter_value = eval_expr(iter, runtime)?;
+            let iter_value = eval_expr(iter, runtime, agent)?;
 
             let items = match iter_value {
                 Value::Array(arr) => arr,
@@ -90,7 +103,7 @@ pub fn eval_statement(stmt: &Statement, runtime: &mut Runtime) -> Result<Value, 
             for item in items {
                 runtime.push_scope();
                 runtime.define_var(var, item).map_err(Error::Runtime)?;
-                result = eval_block(body, runtime)?;
+                result = eval_block(body, runtime, agent)?;
                 runtime.pop_scope();
             }
             Ok(result)
@@ -99,20 +112,20 @@ pub fn eval_statement(stmt: &Statement, runtime: &mut Runtime) -> Result<Value, 
         Statement::While { condition, body } => {
             let mut result = Value::Null;
             loop {
-                let cond_value = eval_expr(condition, runtime)?;
+                let cond_value = eval_expr(condition, runtime, agent)?;
 
                 if !cond_value.to_bool() {
                     break;
                 }
 
-                result = eval_block(body, runtime)?;
+                result = eval_block(body, runtime, agent)?;
             }
             Ok(result)
         }
 
         Statement::Return(expr) => {
             let value = match expr {
-                Some(e) => eval_expr(e, runtime)?,
+                Some(e) => eval_expr(e, runtime, agent)?,
                 None => Value::Null,
             };
             // For now, just return the value. Proper return handling
@@ -188,7 +201,11 @@ fn bind_object_pattern_field(
 }
 
 /// Evaluate an expression.
-pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
+pub fn eval_expr(
+    expr: &Expr,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     match expr {
         Expr::Identifier(name) => {
             let value = runtime.get_var(name)
@@ -203,7 +220,7 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
             Ok(Value::Number(n))
         }
 
-        Expr::String(string_lit) => eval_string_literal(string_lit, runtime),
+        Expr::String(string_lit) => eval_string_literal(string_lit, runtime, agent),
 
         Expr::True => Ok(Value::Boolean(true)),
         Expr::False => Ok(Value::Boolean(false)),
@@ -211,7 +228,7 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
         Expr::Array(items) => {
             let mut values = Vec::new();
             for item in items {
-                values.push(eval_expr(item, runtime)?);
+                values.push(eval_expr(item, runtime, agent)?);
             }
             Ok(Value::Array(values))
         }
@@ -220,7 +237,7 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
             let mut map = std::collections::HashMap::new();
             for field in fields {
                 let value = match &field.value {
-                    Some(expr) => eval_expr(expr, runtime)?,
+                    Some(expr) => eval_expr(expr, runtime, agent)?,
                     None => {
                         // Shorthand: {x} means {x: x}
                         runtime.get_var(field.key)
@@ -233,14 +250,14 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
             Ok(Value::Object(map))
         }
 
-        Expr::Binary { op, left, right } => eval_binary(op, left, right, runtime),
+        Expr::Binary { op, left, right } => eval_binary(op, left, right, runtime, agent),
 
-        Expr::Unary { op, operand } => eval_unary(op, operand, runtime),
+        Expr::Unary { op, operand } => eval_unary(op, operand, runtime, agent),
 
-        Expr::Call { callee, args } => eval_call(callee, args, runtime),
+        Expr::Call { callee, args } => eval_call(callee, args, runtime, agent),
 
         Expr::Member { object, field } => {
-            let obj_value = eval_expr(object, runtime)?;
+            let obj_value = eval_expr(object, runtime, agent)?;
 
             match obj_value {
                 Value::Object(map) => {
@@ -253,8 +270,8 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
         }
 
         Expr::Index { object, index } => {
-            let obj_value = eval_expr(object, runtime)?;
-            let idx_value = eval_expr(index, runtime)?;
+            let obj_value = eval_expr(object, runtime, agent)?;
+            let idx_value = eval_expr(index, runtime, agent)?;
 
             match (obj_value, idx_value) {
                 (Value::Array(arr), Value::Number(n)) => {
@@ -272,27 +289,27 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
 
         Expr::PostIncrement(operand) | Expr::PostDecrement(operand) => {
             // For now, simplified - just evaluate and return
-            eval_expr(operand, runtime)
+            eval_expr(operand, runtime, agent)
         }
 
-        Expr::Paren(inner) => eval_expr(inner, runtime),
+        Expr::Paren(inner) => eval_expr(inner, runtime, agent),
 
         Expr::Await(inner) => {
             // In synchronous evaluation, await is a no-op
-            eval_expr(inner, runtime)
+            eval_expr(inner, runtime, agent)
         }
 
-        Expr::Think(prompt_block) => eval_think_block(prompt_block, runtime),
+        Expr::Think(prompt_block) => eval_think_block(prompt_block, runtime, agent),
 
-        Expr::Ask(prompt_block) => eval_think_block(prompt_block, runtime),
+        Expr::Ask(prompt_block) => eval_think_block(prompt_block, runtime, agent),
 
-        Expr::Do(block) => eval_block(block, runtime),
+        Expr::Do(block) => eval_block(block, runtime, agent),
 
-        Expr::BareCommand { name, args } => eval_bare_command(name, args, runtime),
+        Expr::BareCommand { name, args } => eval_bare_command(name, args, runtime, agent),
 
         Expr::CommandSubst(inner) => {
             // Execute inner expression as command, return stdout
-            let result = eval_expr(inner, runtime)?;
+            let result = eval_expr(inner, runtime, agent)?;
 
             match result {
                 Value::String(s) => Ok(Value::String(s.trim_end_matches('\n').to_string())),
@@ -303,44 +320,48 @@ pub fn eval_expr(expr: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
         Expr::ShellPipe { left, right } => {
             // For now, simplified pipe - just execute right with left's output
             // A proper implementation would use actual pipes
-            let _left_result = eval_expr(left, runtime)?;
-            eval_expr(right, runtime)
+            let _left_result = eval_expr(left, runtime, agent)?;
+            eval_expr(right, runtime, agent)
         }
 
         Expr::ShellAnd { left, right } => {
-            let left_result = eval_expr(left, runtime)?;
+            let left_result = eval_expr(left, runtime, agent)?;
 
             if left_result.to_bool() {
-                eval_expr(right, runtime)
+                eval_expr(right, runtime, agent)
             } else {
                 Ok(left_result)
             }
         }
 
         Expr::ShellOr { left, right } => {
-            let left_result = eval_expr(left, runtime)?;
+            let left_result = eval_expr(left, runtime, agent)?;
 
             if left_result.to_bool() {
                 Ok(left_result)
             } else {
-                eval_expr(right, runtime)
+                eval_expr(right, runtime, agent)
             }
         }
 
         Expr::ShellRedirect { command, op, target } => {
-            eval_shell_redirect(command, op, target, runtime)
+            eval_shell_redirect(command, op, target, runtime, agent)
         }
     }
 }
 
 /// Evaluate a string literal with interpolation.
-fn eval_string_literal(lit: &StringLiteral, runtime: &mut Runtime) -> Result<Value, Error> {
+fn eval_string_literal(
+    lit: &StringLiteral,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     let mut result = String::new();
     for part in &lit.parts {
         match part {
             StringPart::Text(s) => result.push_str(s),
             StringPart::Interpolation(expr) => {
-                let value = eval_expr(expr, runtime)?;
+                let value = eval_expr(expr, runtime, agent)?;
                 result.push_str(&value.to_string_value());
             }
         }
@@ -350,10 +371,14 @@ fn eval_string_literal(lit: &StringLiteral, runtime: &mut Runtime) -> Result<Val
 
 /// Evaluate a think or ask block.
 ///
-/// In Phase 3, this returns a placeholder. In Phase 5, this will block on
-/// a channel waiting for the agent to provide the LLM response.
-fn eval_think_block(prompt_block: &PromptBlock, runtime: &mut Runtime) -> Result<Value, Error> {
-    // Interpolate the prompt text (we'll need this in Phase 5)
+/// If an agent is available, this blocks on the agent channel waiting for the
+/// LLM response. Otherwise, it returns a placeholder with the interpolated prompt.
+fn eval_think_block(
+    prompt_block: &PromptBlock,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
+    // Interpolate the prompt text
     let mut prompt_text = String::new();
 
     for item in &prompt_block.items {
@@ -362,29 +387,63 @@ fn eval_think_block(prompt_block: &PromptBlock, runtime: &mut Runtime) -> Result
                 prompt_text.push_str(text);
             }
             PromptItem::Interpolation(expr) => {
-                let value = eval_expr(expr, runtime)?;
+                let value = eval_expr(expr, runtime, agent)?;
                 prompt_text.push_str(&value.to_string_value());
             }
             PromptItem::Code(block) => {
                 // Embedded code blocks - execute them
-                let _result = eval_block(block, runtime)?;
+                let _result = eval_block(block, runtime, agent)?;
             }
         }
     }
 
-    // Phase 3: Return placeholder - actual blocking will be added in Phase 5
-    // The prompt text is computed but we can't send it to an agent yet.
-    // For now, return an object with the prompt so tests can verify interpolation works.
-    let mut result = std::collections::HashMap::new();
+    // If we have an agent, send the think request and block waiting for response
+    if let Some(agent) = agent {
+        // Collect current variable bindings for context
+        let bindings: HashMap<String, Value> = HashMap::new(); // TODO: collect from runtime
+
+        // Send think request and get receiver for responses
+        let rx = agent
+            .think(prompt_text.clone(), bindings, "string".to_string())
+            .map_err(Error::Runtime)?;
+
+        // Block waiting for responses (following threadbare pattern)
+        for response in rx {
+            match response {
+                ThinkResponse::Do { index, result_tx } => {
+                    // The LLM invoked do(index) - we need recursive evaluation
+                    // For now, send back a placeholder (full implementation needs
+                    // access to think block children)
+                    let _ = result_tx.send(format!("do({}) not yet implemented", index));
+                }
+                ThinkResponse::Complete { result } => {
+                    // Think block completed - return the value
+                    return result.map_err(Error::Runtime);
+                }
+            }
+        }
+
+        // Channel closed without Complete - error
+        return Err(Error::Runtime("Think block terminated without completion".to_string()));
+    }
+
+    // No agent - return placeholder so tests can verify interpolation works
+    let mut result = HashMap::new();
     result.insert("__think_prompt".to_string(), Value::String(prompt_text));
     Ok(Value::Object(result))
 }
 
 /// Evaluate a binary operation.
-fn eval_binary(op: &BinOp, left: &Expr, right: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
+fn eval_binary(
+    op: &BinOp,
+    left: &Expr,
+    right: &Expr,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     // Handle assignment specially
     if let BinOp::Assign = op {
-        let value = eval_expr(right, runtime)?;
+        let value = eval_expr(right, runtime, agent)?;
 
         match left {
             Expr::Identifier(name) => {
@@ -395,8 +454,8 @@ fn eval_binary(op: &BinOp, left: &Expr, right: &Expr, runtime: &mut Runtime) -> 
         }
     }
 
-    let left_val = eval_expr(left, runtime)?;
-    let right_val = eval_expr(right, runtime)?;
+    let left_val = eval_expr(left, runtime, agent)?;
+    let right_val = eval_expr(right, runtime, agent)?;
 
     let result = match op {
         BinOp::Add => {
@@ -486,8 +545,13 @@ fn compare_values(a: &Value, b: &Value, pred: fn(std::cmp::Ordering) -> bool) ->
 }
 
 /// Evaluate a unary operation.
-fn eval_unary(op: &UnOp, operand: &Expr, runtime: &mut Runtime) -> Result<Value, Error> {
-    let value = eval_expr(operand, runtime)?;
+fn eval_unary(
+    op: &UnOp,
+    operand: &Expr,
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
+    let value = eval_expr(operand, runtime, agent)?;
 
     match op {
         UnOp::Not => Ok(Value::Boolean(!value.to_bool())),
@@ -502,12 +566,17 @@ fn eval_unary(op: &UnOp, operand: &Expr, runtime: &mut Runtime) -> Result<Value,
 }
 
 /// Evaluate a function call.
-fn eval_call(callee: &Expr, args: &[Expr], runtime: &mut Runtime) -> Result<Value, Error> {
+fn eval_call(
+    callee: &Expr,
+    args: &[Expr],
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     // Check for builtin functions
     if let Expr::Identifier(name) = callee {
         let mut arg_values = Vec::new();
         for arg in args {
-            arg_values.push(eval_expr(arg, runtime)?);
+            arg_values.push(eval_expr(arg, runtime, agent)?);
         }
 
         return eval_builtin(name, &arg_values, runtime);
@@ -626,13 +695,18 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> Result<Value, 
 }
 
 /// Evaluate a bare shell command.
-fn eval_bare_command(name: &str, args: &[CommandArg], runtime: &mut Runtime) -> Result<Value, Error> {
+fn eval_bare_command(
+    name: &str,
+    args: &[CommandArg],
+    runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
+) -> Result<Value, Error> {
     let mut cmd_args = Vec::new();
     for arg in args {
         match arg {
             CommandArg::Literal(s) => cmd_args.push(s.to_string()),
             CommandArg::String(string_lit) => {
-                let value = eval_string_literal(string_lit, runtime)?;
+                let value = eval_string_literal(string_lit, runtime, agent)?;
                 cmd_args.push(value.to_string_value());
             }
         }
@@ -680,12 +754,13 @@ fn eval_shell_redirect(
     op: &RedirectOp,
     target: &Expr,
     runtime: &mut Runtime,
+    agent: Option<&AgentHandle>,
 ) -> Result<Value, Error> {
     match op {
         RedirectOp::In => {
             // Read from file and use as input
             // For `json < "file.json"`, we read the file and parse as JSON
-            let target_value = eval_expr(target, runtime)?;
+            let target_value = eval_expr(target, runtime, agent)?;
             let path = resolve_path(&target_value.to_string_value(), runtime);
             let contents = fs::read_to_string(&path)
                 .map_err(|e| Error::Runtime(format!("Failed to read {}: {}", path.display(), e)))?;
@@ -702,8 +777,8 @@ fn eval_shell_redirect(
 
         RedirectOp::Out => {
             // Write command output to file
-            let cmd_result = eval_expr(command, runtime)?;
-            let target_value = eval_expr(target, runtime)?;
+            let cmd_result = eval_expr(command, runtime, agent)?;
+            let target_value = eval_expr(target, runtime, agent)?;
             let path = resolve_path(&target_value.to_string_value(), runtime);
 
             // If the command was cat(), write as JSON
@@ -725,8 +800,8 @@ fn eval_shell_redirect(
 
         RedirectOp::Append => {
             // Append command output to file
-            let cmd_result = eval_expr(command, runtime)?;
-            let target_value = eval_expr(target, runtime)?;
+            let cmd_result = eval_expr(command, runtime, agent)?;
+            let target_value = eval_expr(target, runtime, agent)?;
             let path = resolve_path(&target_value.to_string_value(), runtime);
 
             let existing = fs::read_to_string(&path).unwrap_or_default();
@@ -740,7 +815,7 @@ fn eval_shell_redirect(
 
         RedirectOp::ErrOut | RedirectOp::ErrToOut => {
             // Stderr redirections - for now just execute and ignore stderr
-            eval_expr(command, runtime)
+            eval_expr(command, runtime, agent)
         }
     }
 }
@@ -779,7 +854,7 @@ mod tests {
     fn test_eval_number() {
         let mut rt = make_runtime();
         let expr = Expr::Number("42");
-        let value = eval_expr(&expr, &mut rt).unwrap();
+        let value = eval_expr(&expr, &mut rt, None).unwrap();
         assert!(matches!(value, Value::Number(n) if n == 42.0));
     }
 
@@ -789,17 +864,17 @@ mod tests {
         let expr = Expr::String(StringLiteral {
             parts: vec![StringPart::Text("hello")],
         });
-        let value = eval_expr(&expr, &mut rt).unwrap();
+        let value = eval_expr(&expr, &mut rt, None).unwrap();
         assert!(matches!(value, Value::String(s) if s == "hello"));
     }
 
     #[test]
     fn test_eval_boolean() {
         let mut rt = make_runtime();
-        let value = eval_expr(&Expr::True, &mut rt).unwrap();
+        let value = eval_expr(&Expr::True, &mut rt, None).unwrap();
         assert!(matches!(value, Value::Boolean(true)));
 
-        let value = eval_expr(&Expr::False, &mut rt).unwrap();
+        let value = eval_expr(&Expr::False, &mut rt, None).unwrap();
         assert!(matches!(value, Value::Boolean(false)));
     }
 
@@ -811,7 +886,7 @@ mod tests {
             Expr::Number("2"),
             Expr::Number("3"),
         ]);
-        let value = eval_expr(&expr, &mut rt).unwrap();
+        let value = eval_expr(&expr, &mut rt, None).unwrap();
         if let Value::Array(arr) = value {
             assert_eq!(arr, vec![
                 Value::Number(1.0),
@@ -831,7 +906,7 @@ mod tests {
             left: Box::new(Expr::Number("1")),
             right: Box::new(Expr::Number("2")),
         };
-        let value = eval_expr(&expr, &mut rt).unwrap();
+        let value = eval_expr(&expr, &mut rt, None).unwrap();
         assert!(matches!(value, Value::Number(n) if n == 3.0));
     }
 
@@ -847,7 +922,7 @@ mod tests {
                 parts: vec![StringPart::Text("world")],
             })),
         };
-        let value = eval_expr(&expr, &mut rt).unwrap();
+        let value = eval_expr(&expr, &mut rt, None).unwrap();
         assert!(matches!(value, Value::String(s) if s == "hello world"));
     }
 
@@ -888,7 +963,7 @@ mod tests {
                 parts: vec![StringPart::Text("error message")],
             })),
         };
-        let result = eval_expr(&expr, &mut rt);
+        let result = eval_expr(&expr, &mut rt, None);
         match result {
             Err(Error::Exception(Value::String(s))) => {
                 assert_eq!(s, "error message");

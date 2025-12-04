@@ -1,13 +1,13 @@
 //! The Patchwork interpreter.
 //!
 //! This module provides a synchronous interpreter for Patchwork code.
-//! Think blocks will block on channel operations in Phase 5 when the
-//! agent infrastructure is connected.
+//! Think blocks block on channel operations waiting for LLM responses.
 
 use std::path::PathBuf;
 
 use patchwork_parser::ast::{Expr, Statement};
 
+use crate::agent::AgentHandle;
 use crate::error::Error;
 use crate::eval;
 use crate::runtime::Runtime;
@@ -15,19 +15,41 @@ use crate::value::Value;
 
 /// The Patchwork interpreter.
 ///
-/// Executes Patchwork code synchronously. In Phase 5, think blocks will
-/// block on channel operations waiting for LLM responses.
-#[derive(Debug, Clone)]
+/// Executes Patchwork code synchronously. Think blocks block on channel
+/// operations waiting for LLM responses from the agent.
 pub struct Interpreter {
     /// Runtime environment with variable bindings.
     runtime: Runtime,
+    /// Optional agent handle for think blocks.
+    agent: Option<AgentHandle>,
 }
 
 impl Interpreter {
-    /// Create a new interpreter.
+    /// Create a new interpreter without an agent.
+    ///
+    /// Think blocks will return placeholder values instead of blocking on LLM.
     pub fn new() -> Self {
         Self {
             runtime: Runtime::default(),
+            agent: None,
+        }
+    }
+
+    /// Create a new interpreter with an agent handle.
+    ///
+    /// Think blocks will block on the agent channel waiting for LLM responses.
+    pub fn with_agent(agent: AgentHandle) -> Self {
+        Self {
+            runtime: Runtime::default(),
+            agent: Some(agent),
+        }
+    }
+
+    /// Create a new interpreter with a specific working directory and agent.
+    pub fn with_working_dir_and_agent(working_dir: PathBuf, agent: AgentHandle) -> Self {
+        Self {
+            runtime: Runtime::new(working_dir),
+            agent: Some(agent),
         }
     }
 
@@ -35,6 +57,7 @@ impl Interpreter {
     pub fn with_working_dir(working_dir: PathBuf) -> Self {
         Self {
             runtime: Runtime::new(working_dir),
+            agent: None,
         }
     }
 
@@ -46,6 +69,11 @@ impl Interpreter {
     /// Get a mutable reference to the runtime.
     pub fn runtime_mut(&mut self) -> &mut Runtime {
         &mut self.runtime
+    }
+
+    /// Get a reference to the agent handle, if present.
+    pub fn agent(&self) -> Option<&AgentHandle> {
+        self.agent.as_ref()
     }
 
     /// Evaluate Patchwork code.
@@ -87,11 +115,11 @@ impl Interpreter {
             match item {
                 Item::Skill(skill) if skill.name == "__main__" => {
                     // Execute the main skill's body
-                    return eval::eval_block(&skill.body, &mut self.runtime);
+                    return eval::eval_block(&skill.body, &mut self.runtime, self.agent.as_ref());
                 }
                 Item::Function(func) if func.name == "__main__" => {
                     // Execute the main function's body
-                    return eval::eval_block(&func.body, &mut self.runtime);
+                    return eval::eval_block(&func.body, &mut self.runtime, self.agent.as_ref());
                 }
                 _ => {
                     // Other items (imports, type decls, etc.) - currently ignored
@@ -101,17 +129,17 @@ impl Interpreter {
         }
 
         // No __main__ found, evaluate as program items
-        eval::eval_program(program, &mut self.runtime)
+        eval::eval_program(program, &mut self.runtime, self.agent.as_ref())
     }
 
     /// Evaluate a single expression directly (for testing).
     pub fn eval_expr(&mut self, expr: &Expr) -> crate::Result<Value> {
-        eval::eval_expr(expr, &mut self.runtime)
+        eval::eval_expr(expr, &mut self.runtime, self.agent.as_ref())
     }
 
     /// Evaluate a single statement directly (for testing).
     pub fn eval_stmt(&mut self, stmt: &Statement) -> crate::Result<Value> {
-        eval::eval_statement(stmt, &mut self.runtime)
+        eval::eval_statement(stmt, &mut self.runtime, self.agent.as_ref())
     }
 }
 

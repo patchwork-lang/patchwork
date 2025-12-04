@@ -5,8 +5,18 @@
 //! through channels, and the Agent spawns async tasks to handle each request.
 //!
 //! This design is inspired by Niko Matsakis's threadbare prototype.
+//!
+//! ## Architecture
+//!
+//! The interpreter runs on blocking threads using `std::sync::mpsc` channels.
+//! The Agent runs in async tokio land. This module bridges these two worlds:
+//!
+//! 1. Interpreter sends `ThinkRequest` via `std::sync::mpsc` (from patchwork_eval)
+//! 2. Bridge task receives these and forwards to async agent processing
+//! 3. Agent creates LLM sessions and accumulates responses
+//! 4. Results are sent back via `ThinkResponse` on `std::sync::mpsc`
 
-use std::collections::HashMap;
+use std::sync::mpsc as std_mpsc;
 use std::sync::Arc;
 
 use sacp::schema::{
@@ -21,47 +31,10 @@ use tokio::sync::mpsc::{channel, unbounded_channel, Sender, UnboundedReceiver, U
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 
-use patchwork_eval::Value;
-
-/// A handle to the agent that can be cloned and sent to interpreter threads.
-///
-/// The Agent is lightweight - it just holds a sender to the agent task.
-#[derive(Clone)]
-pub struct Agent {
-    tx: UnboundedSender<AgentRequest>,
-}
-
-/// Requests that interpreter threads can send to the agent.
-pub enum AgentRequest {
-    /// Execute a think block and return the LLM response.
-    Think {
-        /// The interpolated prompt text to send to the LLM.
-        prompt: String,
-        /// Variable bindings available in the think block scope.
-        bindings: HashMap<String, Value>,
-        /// Expected type hint for response extraction (e.g., "string", "json").
-        expect: String,
-        /// Channel to send the response value back to the interpreter.
-        response_tx: oneshot::Sender<ThinkResult>,
-    },
-}
+use patchwork_eval::{AgentHandle, ThinkRequest, ThinkResponse, Value};
 
 /// Result of a think block execution.
 pub type ThinkResult = Result<Value, String>;
-
-/// Response types that the agent sends back to interpreter threads during a think session.
-#[allow(dead_code)]
-pub enum ThinkResponse {
-    /// The LLM invoked the "do" tool for recursive evaluation.
-    Do {
-        /// Index of the child AST node to evaluate.
-        index: usize,
-        /// Channel to send the evaluation result back to the agent.
-        result_tx: oneshot::Sender<String>,
-    },
-    /// The think block completed with a final message.
-    Complete { message: String },
-}
 
 /// Messages internal to the agent for routing between sessions.
 pub enum RedirectMessage {
@@ -105,219 +78,252 @@ pub struct AgentState {
     pub mcp_registry: McpServiceRegistry,
 }
 
-impl Agent {
-    /// Create a new agent that uses the given connection context.
-    ///
-    /// This spawns the agent's background tasks:
-    /// - The redirect actor for routing messages to active think sessions
-    /// - The request handler loop that processes ThinkRequests
-    ///
-    /// The agent uses the connection context to create new sessions with
-    /// the successor agent for think blocks.
-    pub fn new(cx: JrConnectionCx, mcp_registry: McpServiceRegistry) -> (Self, UnboundedSender<RedirectMessage>) {
-        let (tx, rx) = unbounded_channel();
-        let (redirect_tx, redirect_rx) = unbounded_channel();
+/// Create an agent that bridges blocking interpreter threads to async LLM sessions.
+///
+/// Returns:
+/// - `AgentHandle` - Pass this to the interpreter for think blocks
+/// - `UnboundedSender<RedirectMessage>` - For routing session notifications
+///
+/// This spawns background tasks:
+/// - Bridge task: Receives `ThinkRequest` from std::sync::mpsc and processes in async
+/// - Redirect actor: Routes messages to active think sessions
+pub fn create_agent(
+    cx: JrConnectionCx,
+    mcp_registry: McpServiceRegistry,
+) -> (AgentHandle, UnboundedSender<RedirectMessage>) {
+    // Create the std::sync channel that the interpreter will use
+    let (std_tx, std_rx) = std_mpsc::channel::<ThinkRequest>();
 
-        // Store shared state
-        let state = Arc::new(AgentState {
-            redirect_tx: redirect_tx.clone(),
-            mcp_registry,
+    // Create the redirect channel
+    let (redirect_tx, redirect_rx) = unbounded_channel();
+
+    // Store shared state
+    let state = Arc::new(AgentState {
+        redirect_tx: redirect_tx.clone(),
+        mcp_registry,
+    });
+
+    // Spawn the redirect actor
+    tokio::spawn(redirect_actor(redirect_rx));
+
+    // Spawn the bridge task that receives from std::sync::mpsc
+    tokio::spawn(bridge_task(cx, std_rx, state));
+
+    // Create the AgentHandle for the interpreter
+    let handle = AgentHandle::new(std_tx);
+
+    (handle, redirect_tx)
+}
+
+/// Bridge task that receives ThinkRequests from blocking channel and processes them async.
+async fn bridge_task(
+    cx: JrConnectionCx,
+    std_rx: std_mpsc::Receiver<ThinkRequest>,
+    state: Arc<AgentState>,
+) {
+    // Wrap the receiver in Arc<std::sync::Mutex> for use across blocking tasks
+    let std_rx = Arc::new(std::sync::Mutex::new(std_rx));
+
+    // Use tokio::task::spawn_blocking to receive from std::sync::mpsc
+    loop {
+        let cx = cx.clone();
+        let state = state.clone();
+        let std_rx = std_rx.clone();
+
+        // Receive from the blocking channel in a blocking task
+        let request = match tokio::task::spawn_blocking(move || {
+            let rx = std_rx.lock().unwrap();
+            rx.recv()
+        })
+        .await
+        {
+            Ok(Ok(request)) => request,
+            Ok(Err(_)) => {
+                // Channel closed - interpreter has shut down
+                tracing::info!("Agent bridge: interpreter channel closed");
+                break;
+            }
+            Err(e) => {
+                tracing::error!("Agent bridge: spawn_blocking error: {}", e);
+                break;
+            }
+        };
+
+        // Process the request in an async task
+        tokio::spawn(async move {
+            process_think_request(cx, request, state).await;
+        });
+    }
+}
+
+/// Process a single think request from the interpreter.
+async fn process_think_request(cx: JrConnectionCx, request: ThinkRequest, state: Arc<AgentState>) {
+    let ThinkRequest {
+        prompt,
+        bindings: _,
+        expect,
+        response_tx,
+    } = request;
+
+    // Execute the think block and send responses
+    let result = think_message(cx, prompt, expect, state).await;
+
+    // Send the Complete response
+    let _ = response_tx.send(ThinkResponse::Complete { result });
+}
+
+/// The redirect actor maintains a stack of active thinkers and routes messages.
+///
+/// When nested think blocks occur, each one pushes onto the stack. Messages
+/// are always routed to the top of the stack (the innermost active think).
+async fn redirect_actor(mut rx: UnboundedReceiver<RedirectMessage>) {
+    let mut stack: Vec<Sender<PerSessionMessage>> = vec![];
+
+    while let Some(message) = rx.recv().await {
+        match message {
+            RedirectMessage::IncomingMessage(msg) => {
+                if let Some(sender) = stack.last() {
+                    if sender.send(msg).await.is_err() {
+                        tracing::warn!("Failed to send message to thinker");
+                    }
+                }
+            }
+            RedirectMessage::PushThinker(sender) => {
+                stack.push(sender);
+            }
+            RedirectMessage::PopThinker => {
+                stack.pop();
+            }
+        }
+    }
+}
+
+/// Handle a single think block by creating an LLM session with the successor.
+async fn think_message(
+    cx: JrConnectionCx,
+    prompt: String,
+    expect: String,
+    state: Arc<AgentState>,
+) -> ThinkResult {
+    // Build the augmented prompt with type hints
+    let augmented_prompt = augment_prompt_with_type_hint(&prompt, &expect);
+
+    // Create session request with our MCP server
+    let mut new_session = NewSessionRequest {
+        cwd: std::env::current_dir().unwrap_or_default(),
+        mcp_servers: vec![],
+        meta: None,
+    };
+    state
+        .mcp_registry
+        .add_registered_mcp_servers_to(&mut new_session);
+
+    // Start a new session with the successor agent (e.g., claude-code-acp)
+    let session_result = cx.send_request(new_session).block_task().await;
+
+    let NewSessionResponse { session_id, .. } = match session_result {
+        Ok(resp) => resp,
+        Err(e) => return Err(format!("Failed to create session: {}", e)),
+    };
+
+    // Create channel for receiving messages for this think session
+    let (think_tx, mut think_rx) = channel(128);
+    if state
+        .redirect_tx
+        .send(RedirectMessage::PushThinker(think_tx))
+        .is_err()
+    {
+        return Err("Redirect actor not running".to_string());
+    }
+
+    // Send the prompt request to the successor
+    let prompt_result = cx
+        .send_request(PromptRequest {
+            session_id: session_id.clone(),
+            prompt: vec![augmented_prompt.into()],
+            meta: None,
+        })
+        .await_when_result_received({
+            let redirect_tx = state.redirect_tx.clone();
+            async move |response| {
+                redirect_tx
+                    .send(RedirectMessage::IncomingMessage(
+                        PerSessionMessage::PromptResponse(response?),
+                    ))
+                    .map_err(sacp::util::internal_error)
+            }
         });
 
-        // Spawn the redirect actor
-        tokio::spawn(Self::redirect_actor(redirect_rx));
-
-        // Spawn the request handler loop
-        tokio::spawn(Self::request_loop(cx, rx, state));
-
-        (Self { tx }, redirect_tx)
-    }
-
-    /// Send a think request to the agent.
-    ///
-    /// Called from interpreter threads (via std::sync::mpsc, blocking).
-    pub fn send_request(&self, request: AgentRequest) -> Result<(), String> {
-        self.tx
-            .send(request)
-            .map_err(|e| format!("Failed to send request to agent: {}", e))
-    }
-
-    /// The redirect actor maintains a stack of active thinkers and routes messages.
-    ///
-    /// When nested think blocks occur, each one pushes onto the stack. Messages
-    /// are always routed to the top of the stack (the innermost active think).
-    async fn redirect_actor(mut rx: UnboundedReceiver<RedirectMessage>) {
-        let mut stack: Vec<Sender<PerSessionMessage>> = vec![];
-
-        while let Some(message) = rx.recv().await {
-            match message {
-                RedirectMessage::IncomingMessage(msg) => {
-                    if let Some(sender) = stack.last() {
-                        if sender.send(msg).await.is_err() {
-                            tracing::warn!("Failed to send message to thinker");
-                        }
-                    }
-                }
-                RedirectMessage::PushThinker(sender) => {
-                    stack.push(sender);
-                }
-                RedirectMessage::PopThinker => {
-                    stack.pop();
-                }
-            }
-        }
-    }
-
-    /// Process incoming think requests from interpreter threads.
-    async fn request_loop(
-        cx: JrConnectionCx,
-        mut rx: UnboundedReceiver<AgentRequest>,
-        state: Arc<AgentState>,
-    ) {
-        while let Some(request) = rx.recv().await {
-            match request {
-                AgentRequest::Think {
-                    prompt,
-                    bindings: _,
-                    expect,
-                    response_tx,
-                } => {
-                    let cx = cx.clone();
-                    let state = state.clone();
-                    tokio::spawn(async move {
-                        let result = Self::think_message(cx, prompt, expect, state).await;
-                        let _ = response_tx.send(result);
-                    });
-                }
-            }
-        }
-    }
-
-    /// Handle a single think block by creating an LLM session with the successor.
-    async fn think_message(
-        cx: JrConnectionCx,
-        prompt: String,
-        expect: String,
-        state: Arc<AgentState>,
-    ) -> ThinkResult {
-        // Build the augmented prompt with type hints
-        let augmented_prompt = augment_prompt_with_type_hint(&prompt, &expect);
-
-        // Create session request with our MCP server
-        let mut new_session = NewSessionRequest {
-            cwd: std::env::current_dir().unwrap_or_default(),
-            mcp_servers: vec![],
-            meta: None,
-        };
-        state.mcp_registry.add_registered_mcp_servers_to(&mut new_session);
-
-        // Start a new session with the successor agent (e.g., claude-code-acp)
-        let session_result = cx.send_request(new_session).block_task().await;
-
-        let NewSessionResponse { session_id, .. } = match session_result {
-            Ok(resp) => resp,
-            Err(e) => return Err(format!("Failed to create session: {}", e)),
-        };
-
-        // Create channel for receiving messages for this think session
-        let (think_tx, mut think_rx) = channel(128);
-        if state
-            .redirect_tx
-            .send(RedirectMessage::PushThinker(think_tx))
-            .is_err()
-        {
-            return Err("Redirect actor not running".to_string());
-        }
-
-        // Send the prompt request to the successor
-        let prompt_result = cx
-            .send_request(PromptRequest {
-                session_id: session_id.clone(),
-                prompt: vec![augmented_prompt.into()],
-                meta: None,
-            })
-            .await_when_result_received({
-                let redirect_tx = state.redirect_tx.clone();
-                async move |response| {
-                    redirect_tx
-                        .send(RedirectMessage::IncomingMessage(
-                            PerSessionMessage::PromptResponse(response?),
-                        ))
-                        .map_err(sacp::util::internal_error)
-                }
-            });
-
-        if let Err(e) = prompt_result {
-            let _ = state.redirect_tx.send(RedirectMessage::PopThinker);
-            return Err(format!("Failed to send prompt: {}", e));
-        }
-
-        // Accumulate the response
-        let mut result_text = String::new();
-
-        while let Some(message) = think_rx.recv().await {
-            match message {
-                PerSessionMessage::SessionNotification(notification) => {
-                    // Accumulate streaming text from the LLM
-                    if let SessionUpdate::AgentMessageChunk(chunk) = notification.update {
-                        if let ContentBlock::Text(text) = chunk.content {
-                            result_text.push_str(&text.text);
-                        }
-                    }
-                }
-                PerSessionMessage::DoInvocation(DoArg { number }, do_tx) => {
-                    // TODO: In Phase 5, this will trigger recursive evaluation
-                    // For now, return an error
-                    let _ = do_tx.send(format!("do({}) not yet implemented", number));
-                }
-                PerSessionMessage::PromptResponse(response) => {
-                    match response.stop_reason {
-                        StopReason::EndTurn => break,
-                        reason => {
-                            tracing::warn!("Unexpected stop reason: {:?}", reason);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Pop ourselves from the redirect stack
+    if let Err(e) = prompt_result {
         let _ = state.redirect_tx.send(RedirectMessage::PopThinker);
-
-        // Extract the typed value from the response
-        extract_response_value(&result_text, &expect)
+        return Err(format!("Failed to send prompt: {}", e));
     }
 
-    /// Create the MCP server offering the "do" tool.
-    ///
-    /// This should be registered with the proxy's MCP registry so that when
-    /// we create sessions with the successor, the "do" tool is available.
-    pub fn create_mcp_server(redirect_tx: UnboundedSender<RedirectMessage>) -> McpServer {
-        let redirect_tx = Arc::new(Mutex::new(redirect_tx));
-        McpServer::new()
-            .instructions("Patchwork interpreter tools for recursive evaluation")
-            .tool_fn(
-                "do",
-                "Execute a Patchwork code fragment by index. Call this when instructed to execute a specific numbered code block.",
-                {
-                    let redirect_tx = redirect_tx.clone();
-                    async move |arg: DoArg, _cx| -> Result<DoResult, sacp::Error> {
-                        let (result_tx, result_rx) = oneshot::channel();
-                        let tx = redirect_tx.lock().await;
-                        tx.send(RedirectMessage::IncomingMessage(
-                            PerSessionMessage::DoInvocation(arg, result_tx),
-                        ))
-                        .map_err(sacp::util::internal_error)?;
-                        drop(tx);
-                        Ok(DoResult {
-                            text: result_rx.await.map_err(sacp::util::internal_error)?,
-                        })
+    // Accumulate the response
+    let mut result_text = String::new();
+
+    while let Some(message) = think_rx.recv().await {
+        match message {
+            PerSessionMessage::SessionNotification(notification) => {
+                // Accumulate streaming text from the LLM
+                if let SessionUpdate::AgentMessageChunk(chunk) = notification.update {
+                    if let ContentBlock::Text(text) = chunk.content {
+                        result_text.push_str(&text.text);
                     }
-                },
-                |f, a, b| Box::pin(f(a, b)),
-            )
+                }
+            }
+            PerSessionMessage::DoInvocation(DoArg { number }, do_tx) => {
+                // TODO: In Phase 5, this will trigger recursive evaluation
+                // For now, return an error
+                let _ = do_tx.send(format!("do({}) not yet implemented", number));
+            }
+            PerSessionMessage::PromptResponse(response) => {
+                match response.stop_reason {
+                    StopReason::EndTurn => break,
+                    reason => {
+                        tracing::warn!("Unexpected stop reason: {:?}", reason);
+                        break;
+                    }
+                }
+            }
+        }
     }
+
+    // Pop ourselves from the redirect stack
+    let _ = state.redirect_tx.send(RedirectMessage::PopThinker);
+
+    // Extract the typed value from the response
+    extract_response_value(&result_text, &expect)
+}
+
+/// Create the MCP server offering the "do" tool.
+///
+/// This should be registered with the proxy's MCP registry so that when
+/// we create sessions with the successor, the "do" tool is available.
+pub fn create_mcp_server(redirect_tx: UnboundedSender<RedirectMessage>) -> McpServer {
+    let redirect_tx = Arc::new(Mutex::new(redirect_tx));
+    McpServer::new()
+        .instructions("Patchwork interpreter tools for recursive evaluation")
+        .tool_fn(
+            "do",
+            "Execute a Patchwork code fragment by index. Call this when instructed to execute a specific numbered code block.",
+            {
+                let redirect_tx = redirect_tx.clone();
+                async move |arg: DoArg, _cx| -> Result<DoResult, sacp::Error> {
+                    let (result_tx, result_rx) = oneshot::channel();
+                    let tx = redirect_tx.lock().await;
+                    tx.send(RedirectMessage::IncomingMessage(
+                        PerSessionMessage::DoInvocation(arg, result_tx),
+                    ))
+                    .map_err(sacp::util::internal_error)?;
+                    drop(tx);
+                    Ok(DoResult {
+                        text: result_rx.await.map_err(sacp::util::internal_error)?,
+                    })
+                }
+            },
+            |f, a, b| Box::pin(f(a, b)),
+        )
 }
 
 /// Augment the prompt with type hint instructions for response formatting.

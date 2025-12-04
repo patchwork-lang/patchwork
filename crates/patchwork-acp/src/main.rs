@@ -6,7 +6,7 @@
 
 mod agent;
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use sacp::schema::{ContentBlock, PromptRequest, PromptResponse, StopReason};
@@ -15,50 +15,42 @@ use sacp_proxy::{AcpProxyExt, JrCxExt, McpServiceRegistry};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing_subscriber::EnvFilter;
 
-use patchwork_eval::{Error as EvalError, Interpreter, Value};
-
-/// Session state for tracking active evaluations.
-struct Session {
-    /// The interpreter for this session's active evaluation.
-    interpreter: Option<Interpreter>,
-}
-
-impl Session {
-    fn new() -> Self {
-        Self { interpreter: None }
-    }
-
-    fn has_active_evaluation(&self) -> bool {
-        self.interpreter.is_some()
-    }
-
-    fn store_interpreter(&mut self, interp: Interpreter) {
-        self.interpreter = Some(interp);
-    }
-
-    #[allow(dead_code)]
-    fn take_interpreter(&mut self) -> Option<Interpreter> {
-        self.interpreter.take()
-    }
-}
+use patchwork_eval::{AgentHandle, Error as EvalError, Interpreter};
 
 /// The Patchwork proxy state.
 struct PatchworkProxy {
-    /// Sessions indexed by session ID (for now, just use a single default session).
-    sessions: HashMap<String, Session>,
+    /// Sessions with active evaluations (session IDs).
+    active_sessions: HashSet<String>,
+    /// Agent handle for think blocks.
+    agent_handle: Option<AgentHandle>,
 }
 
 impl PatchworkProxy {
     fn new() -> Self {
         Self {
-            sessions: HashMap::new(),
+            active_sessions: HashSet::new(),
+            agent_handle: None,
         }
     }
 
-    fn get_or_create_session(&mut self, session_id: &str) -> &mut Session {
-        self.sessions
-            .entry(session_id.to_string())
-            .or_insert_with(Session::new)
+    fn has_active_evaluation(&self, session_id: &str) -> bool {
+        self.active_sessions.contains(session_id)
+    }
+
+    fn start_evaluation(&mut self, session_id: &str) {
+        self.active_sessions.insert(session_id.to_string());
+    }
+
+    fn end_evaluation(&mut self, session_id: &str) {
+        self.active_sessions.remove(session_id);
+    }
+
+    fn set_agent_handle(&mut self, handle: AgentHandle) {
+        self.agent_handle = Some(handle);
+    }
+
+    fn agent_handle(&self) -> Option<AgentHandle> {
+        self.agent_handle.clone()
     }
 }
 
@@ -111,12 +103,11 @@ async fn handle_prompt(
 
     tracing::info!("Detected Patchwork code, executing...");
 
-    // Check for active evaluation
-    {
-        let mut proxy = proxy.lock().unwrap();
-        let session = proxy.get_or_create_session(&session_id);
+    // Check for active evaluation and get agent handle
+    let agent_handle = {
+        let proxy = proxy.lock().unwrap();
 
-        if session.has_active_evaluation() {
+        if proxy.has_active_evaluation(&session_id) {
             // Already evaluating, return error
             cx.respond_with_error(
                 sacp::Error::invalid_request()
@@ -124,32 +115,39 @@ async fn handle_prompt(
             )?;
             return Ok(());
         }
+
+        proxy.agent_handle()
+    };
+
+    // Mark session as active
+    {
+        let mut proxy = proxy.lock().unwrap();
+        proxy.start_evaluation(&session_id);
     }
 
-    // Create interpreter and evaluate
-    let mut interp = Interpreter::new();
-    match interp.eval(&text) {
+    // Create interpreter with agent handle
+    let mut interp = match agent_handle {
+        Some(handle) => Interpreter::with_agent(handle),
+        None => Interpreter::new(),
+    };
+
+    // Evaluate on a blocking thread since interpreter may block on channels
+    let eval_result = {
+        let text = text.clone();
+        tokio::task::spawn_blocking(move || interp.eval(&text))
+            .await
+            .map_err(|e| sacp::Error::internal_error().with_data(format!("Task error: {}", e)))?
+    };
+
+    // End the evaluation regardless of result
+    {
+        let mut proxy = proxy.lock().unwrap();
+        proxy.end_evaluation(&session_id);
+    }
+
+    match eval_result {
         Ok(value) => {
             tracing::info!("Patchwork code completed: {:?}", value);
-
-            // Check if this is a think block placeholder (Phase 3 behavior)
-            // In Phase 5, think blocks will block on channels instead.
-            if let Value::Object(ref obj) = value {
-                if obj.contains_key("__think_prompt") {
-                    // Store interpreter for later use (when we implement blocking)
-                    {
-                        let mut proxy = proxy.lock().unwrap();
-                        let session = proxy.get_or_create_session(&session_id);
-                        session.store_interpreter(interp);
-                    }
-                    // For now, respond with placeholder info
-                    let response = create_text_response(
-                        "Patchwork execution reached think block (not yet connected to LLM)".to_string()
-                    );
-                    cx.respond(response)?;
-                    return Ok(());
-                }
-            }
 
             // Normal completion
             let response = create_text_response(format!(
@@ -202,15 +200,22 @@ async fn main() -> anyhow::Result<()> {
     // Create shared proxy state
     let proxy = Arc::new(Mutex::new(PatchworkProxy::new()));
 
+    // Create MCP registry for the "do" tool
+    let mcp_registry = McpServiceRegistry::default();
+
     // Build the handler chain
     let proxy_clone = Arc::clone(&proxy);
     JrHandlerChain::new()
         .name("patchwork-acp")
         .on_receive_request(move |request: PromptRequest, cx: JrRequestCx<PromptResponse>| {
             let proxy = Arc::clone(&proxy_clone);
-            async move { handle_prompt(proxy, request, cx).await }
+            async move {
+                // Create agent on first request if not already created
+                ensure_agent_created(&proxy, cx.connection_cx().clone());
+                handle_prompt(proxy, request, cx).await
+            }
         })
-        .provide_mcp(McpServiceRegistry::default())
+        .provide_mcp(mcp_registry)
         .proxy()
         .connect_to(sacp::ByteStreams::new(
             tokio::io::stdout().compat_write(),
@@ -220,4 +225,15 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     Ok(())
+}
+
+/// Ensure the agent is created (lazily, on first request).
+fn ensure_agent_created(proxy: &Arc<Mutex<PatchworkProxy>>, cx: sacp::JrConnectionCx) {
+    let mut proxy = proxy.lock().unwrap();
+    if proxy.agent_handle.is_none() {
+        let mcp_registry = McpServiceRegistry::default();
+        let (agent_handle, _redirect_tx) = agent::create_agent(cx, mcp_registry);
+        proxy.set_agent_handle(agent_handle);
+        tracing::info!("Agent created and connected to successor");
+    }
 }

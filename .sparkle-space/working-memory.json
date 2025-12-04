@@ -1,46 +1,50 @@
 {
-  "current_focus": "Phase 4 complete - Agent infrastructure built",
+  "current_focus": "Phase 5 complete - Interpreter-agent integration done",
   "session_context": {
     "project": "patchwork",
-    "phase": "Phase 4 Complete - Ready for Phase 5",
-    "last_work": "Built agent infrastructure in patchwork-acp/src/agent.rs"
+    "phase": "Phase 5 Complete - Ready for Phase 6",
+    "last_work": "Connected interpreter to agent with blocking channels"
   },
   "completed_work": [
-    "Created agent.rs module in patchwork-acp crate",
-    "Defined Agent struct with UnboundedSender<AgentRequest>",
-    "Defined AgentRequest::Think with prompt, bindings, expect, response_tx",
-    "Implemented Agent::new(cx, mcp_registry) to create agent with connection context",
-    "Implemented redirect_actor() for routing messages to active thinkers",
-    "Implemented request_loop() to process AgentRequests",
-    "Implemented think_message() to create LLM sessions and extract responses",
-    "Implemented create_mcp_server() factory for 'do' tool",
-    "Implemented extract_code_fence() and extract_response_value()",
-    "Implemented augment_prompt_with_type_hint()",
-    "Added 8 unit tests for code fence extraction",
-    "Fixed schemars version to 1.1 (matching sacp-proxy)",
-    "Updated implementation plan to mark Phase 4 complete",
-    "All 287 tests pass across workspace"
+    "Created agent.rs module in patchwork-eval with ThinkRequest, ThinkResponse, AgentHandle",
+    "Updated Interpreter to accept optional AgentHandle",
+    "Added with_agent() constructor for LLM-connected interpreters",
+    "Updated all eval functions to accept Option<&AgentHandle> parameter",
+    "Implemented eval_think_block() to block on agent channel when agent present",
+    "Handles ThinkResponse::Do (placeholder) and ThinkResponse::Complete",
+    "Refactored patchwork-acp/agent.rs to use patchwork-eval types",
+    "Created create_agent() function returning (AgentHandle, redirect_tx)",
+    "Implemented bridge_task() to receive from std::sync::mpsc via spawn_blocking",
+    "Updated proxy main.rs to create agent lazily on first request",
+    "Changed session tracking from HashMap<SessionId, Session> to HashSet<SessionId>",
+    "Interpreter now runs on spawn_blocking thread for proper blocking",
+    "All 287 tests pass across workspace",
+    "Updated implementation plan to mark Phase 5 complete"
   ],
   "key_architectural_decisions": [
-    "Agent lives in patchwork-acp (not patchwork-eval) - deeply integrated with SACP",
-    "Agent::new() takes JrConnectionCx from proxy chain, not separate connection",
-    "Redirect actor maintains stack of active thinkers for nested think blocks",
-    "Response extraction uses markdown code fences (```text, ```json) with fallback",
-    "MCP 'do' tool prepared for Phase 5 recursive evaluation"
+    "patchwork_eval defines the interface (ThinkRequest, ThinkResponse, AgentHandle)",
+    "patchwork_acp implements the bridge between blocking and async worlds",
+    "AgentHandle wraps std::sync::mpsc::Sender<ThinkRequest>",
+    "bridge_task uses spawn_blocking to receive from sync channel",
+    "Agent created lazily via ensure_agent_created() on first request",
+    "Interpreter runs on spawn_blocking thread, can block on channels"
   ],
   "next_steps": [
-    "Phase 5: Connect interpreter to agent with blocking channels",
-    "Update Interpreter to accept agent handle",
-    "Update eval_think_block() to block on agent channel",
-    "Update proxy to spawn interpreter threads with agent",
-    "Wire up session notification handler"
+    "Phase 6: Full demo and polish",
+    "Create interview sanitization test data",
+    "Test with real LLM end-to-end",
+    "Improve error messages",
+    "Add documentation"
   ],
   "files_created": [
-    "crates/patchwork-acp/src/agent.rs - Full agent infrastructure"
+    "crates/patchwork-eval/src/agent.rs - ThinkRequest, ThinkResponse, AgentHandle"
   ],
   "files_modified": [
-    "crates/patchwork-acp/Cargo.toml - Added schemars 1.1",
-    "crates/patchwork-acp/src/main.rs - Added mod agent",
-    "docs/patchwork-acp-implementation-plan.md - Marked Phase 4 complete"
+    "crates/patchwork-eval/src/lib.rs - Export agent types",
+    "crates/patchwork-eval/src/interpreter.rs - Add optional AgentHandle",
+    "crates/patchwork-eval/src/eval.rs - Pass agent through all eval functions",
+    "crates/patchwork-acp/src/agent.rs - Refactored to use patchwork-eval types",
+    "crates/patchwork-acp/src/main.rs - Simplified session tracking, lazy agent creation",
+    "docs/patchwork-acp-implementation-plan.md - Marked Phase 5 complete"
   ]
 }
