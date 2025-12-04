@@ -4,6 +4,8 @@
 //! intercepting prompts that contain Patchwork code and executing them with
 //! integrated LLM support via think blocks.
 
+mod agent;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 

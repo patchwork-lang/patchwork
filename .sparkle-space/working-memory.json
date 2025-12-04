@@ -1,40 +1,46 @@
 {
-  "current_focus": "Phase 3 complete - Evaluation engine refactored to synchronous blocking model",
+  "current_focus": "Phase 4 complete - Agent infrastructure built",
   "session_context": {
     "project": "patchwork",
-    "phase": "Phase 3 Complete - Ready for Phase 4",
-    "last_work": "Refactored evaluation to use Result<Value, Error>, removed ControlState"
+    "phase": "Phase 4 Complete - Ready for Phase 5",
+    "last_work": "Built agent infrastructure in patchwork-acp/src/agent.rs"
   },
   "completed_work": [
-    "Added Error::Exception(Value) variant for Patchwork exceptions",
-    "Removed ControlState enum entirely from patchwork-eval",
-    "Changed all eval functions to return Result<Value, Error>",
-    "Removed try_eval! macro - now using Rust ? operator directly",
-    "Updated Interpreter API - removed resume(), removed state field",
-    "Updated lib.rs exports to remove ControlState, LlmOp, Bindings",
-    "Updated patchwork-acp to use new API with EvalError::Exception handling",
-    "Think blocks now return placeholder { __think_prompt: '...' } object",
-    "Added test_throw_exception and test_exception_propagation tests",
-    "All 279 tests pass across workspace"
+    "Created agent.rs module in patchwork-acp crate",
+    "Defined Agent struct with UnboundedSender<AgentRequest>",
+    "Defined AgentRequest::Think with prompt, bindings, expect, response_tx",
+    "Implemented Agent::new(cx, mcp_registry) to create agent with connection context",
+    "Implemented redirect_actor() for routing messages to active thinkers",
+    "Implemented request_loop() to process AgentRequests",
+    "Implemented think_message() to create LLM sessions and extract responses",
+    "Implemented create_mcp_server() factory for 'do' tool",
+    "Implemented extract_code_fence() and extract_response_value()",
+    "Implemented augment_prompt_with_type_hint()",
+    "Added 8 unit tests for code fence extraction",
+    "Fixed schemars version to 1.1 (matching sacp-proxy)",
+    "Updated implementation plan to mark Phase 4 complete",
+    "All 287 tests pass across workspace"
   ],
   "key_architectural_decisions": [
-    "Exceptions model: Error::Exception(Value) propagates with ? operator",
-    "throw expression evaluates to Err(Error::Exception(value))",
-    "Think blocks return placeholder until Phase 5 blocking implementation",
-    "Interpreter.eval() returns Result<Value> directly, no ControlState indirection",
-    "No resume() method needed - thread blocking will handle state preservation"
+    "Agent lives in patchwork-acp (not patchwork-eval) - deeply integrated with SACP",
+    "Agent::new() takes JrConnectionCx from proxy chain, not separate connection",
+    "Redirect actor maintains stack of active thinkers for nested think blocks",
+    "Response extraction uses markdown code fences (```text, ```json) with fallback",
+    "MCP 'do' tool prepared for Phase 5 recursive evaluation"
   ],
   "next_steps": [
-    "Phase 4: Build agent infrastructure (client loop, think_message, redirect actor)",
     "Phase 5: Connect interpreter to agent with blocking channels",
-    "Phase 6: Complete demo and polish"
+    "Update Interpreter to accept agent handle",
+    "Update eval_think_block() to block on agent channel",
+    "Update proxy to spawn interpreter threads with agent",
+    "Wire up session notification handler"
+  ],
+  "files_created": [
+    "crates/patchwork-acp/src/agent.rs - Full agent infrastructure"
   ],
   "files_modified": [
-    "crates/patchwork-eval/src/error.rs - Added Exception variant",
-    "crates/patchwork-eval/src/eval.rs - Refactored to Result<Value, Error>",
-    "crates/patchwork-eval/src/interpreter.rs - Simplified API",
-    "crates/patchwork-eval/src/lib.rs - Updated exports",
-    "crates/patchwork-acp/src/main.rs - Updated for new API",
-    "docs/patchwork-acp-implementation-plan.md - Marked Phase 3 complete"
+    "crates/patchwork-acp/Cargo.toml - Added schemars 1.1",
+    "crates/patchwork-acp/src/main.rs - Added mod agent",
+    "docs/patchwork-acp-implementation-plan.md - Marked Phase 4 complete"
   ]
 }

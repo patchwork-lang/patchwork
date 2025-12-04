@@ -229,83 +229,75 @@ Build an ACP proxy that interprets Patchwork code in real-time, enabling a "supe
 
 ---
 
-## Phase 4: Agent Infrastructure
+## Phase 4: Agent Infrastructure ✅
 
 **Goal**: Build agent thread infrastructure for LLM communication
 
 **Success Criteria**: Agent can create sessions, send prompts, and communicate with interpreter threads
 
+**Note**: Agent lives in `patchwork-acp` (not `patchwork-eval`) because it's deeply integrated with SACP.
+
 ### Agent Core Types
 
-- [ ] Create `agent.rs` module in `patchwork-eval`
-  - [ ] Define `Agent` struct with `UnboundedSender<AgentRequest>`
-  - [ ] Define `AgentRequest` enum:
-    ```rust
-    pub enum AgentRequest {
-        Think {
-            prompt: String,
-            bindings: Bindings,
-            expect: String,
-            response_tx: oneshot::Sender<Value>,
-        },
-    }
-    ```
-  - [ ] Define `ThinkResponse` enum for internal agent use
-  - [ ] Implement `Agent::spawn()` to start agent thread
+- [x] Create `agent.rs` module in `patchwork-acp`
+  - [x] Define `Agent` struct with `UnboundedSender<AgentRequest>`
+  - [x] Define `AgentRequest` enum with Think variant
+  - [x] Define `ThinkResponse` enum for internal agent use
+  - [x] Implement `Agent::new(cx, mcp_registry)` to start agent tasks
 
 ### Agent Client Loop
 
-- [ ] Implement agent main loop
-  - [ ] Start Tokio runtime for agent thread
-  - [ ] Set up SACP connection to successor agent
-  - [ ] Create unbounded channel for receiving `AgentRequest`s
-  - [ ] Loop: receive requests, spawn `think_message` tasks
+- [x] Implement agent request loop
+  - [x] Uses proxy's Tokio runtime (not separate thread)
+  - [x] Uses proxy's connection context for SACP
+  - [x] Create unbounded channel for receiving `AgentRequest`s
+  - [x] Loop: receive requests, spawn `think_message` tasks
 
 ### Think Message Task
 
-- [ ] Implement `think_message()` async function
-  - [ ] Create new SACP session with MCP server
-  - [ ] Send prompt request to successor
-  - [ ] Wait for prompt response
-  - [ ] Extract typed value from response (markdown code fence)
-  - [ ] Send value back through `response_tx` oneshot channel
+- [x] Implement `think_message()` async function
+  - [x] Create new SACP session with MCP server
+  - [x] Send prompt request to successor
+  - [x] Wait for prompt response
+  - [x] Extract typed value from response (markdown code fence)
+  - [x] Send value back through `response_tx` oneshot channel
 
 ### Redirect Actor (for nested thinks)
 
-- [ ] Implement redirect actor
-  - [ ] Maintain `Vec<Sender<PerSessionMessage>>` stack
-  - [ ] Handle `PushThinker` / `PopThinker` messages
-  - [ ] Route incoming SACP messages to top of stack
-  - [ ] Forward session notifications to active thinker
-  - [ ] Forward MCP tool calls to active thinker
+- [x] Implement redirect actor
+  - [x] Maintain `Vec<Sender<PerSessionMessage>>` stack
+  - [x] Handle `PushThinker` / `PopThinker` messages
+  - [x] Route incoming SACP messages to top of stack
+  - [x] Forward session notifications to active thinker
+  - [x] Forward MCP tool calls to active thinker
 
 ### MCP Do Tool
 
-- [ ] Implement MCP server for `do` tool
-  - [ ] Register tool with SACP session
-  - [ ] Handle `do(number)` invocations from LLM
-  - [ ] Create oneshot channel for result
-  - [ ] Send `DoInvocation` through redirect actor
-  - [ ] Wait for result, return to LLM
+- [x] Implement MCP server for `do` tool
+  - [x] `Agent::create_mcp_server()` factory method
+  - [x] Handle `do(number)` invocations from LLM
+  - [x] Create oneshot channel for result
+  - [x] Send `DoInvocation` through redirect actor
+  - [x] Wait for result, return to LLM
+  - [ ] Recursive evaluation (Phase 5)
 
 ### Response Extraction
 
-- [ ] Implement markdown code fence parsing
-  - [ ] Look for ` ```text ... ``` ` or ` ```json ... ``` ` markers
-  - [ ] Extract content between fences
-  - [ ] Trim whitespace from extracted content
-  - [ ] Parse JSON if expect type is not string
-  - [ ] Fallback to full response text if no markers found
+- [x] Implement markdown code fence parsing
+  - [x] `extract_code_fence()` function
+  - [x] Look for ` ```text ... ``` ` or ` ```json ... ``` ` markers
+  - [x] Extract content between fences
+  - [x] Trim whitespace from extracted content
+  - [x] Parse JSON if expect type is not string
+  - [x] Fallback to full response text if no markers found
 
 ### Testing
 
-- [ ] Unit test: Code fence extraction
-  - [ ] Test with text fences
-  - [ ] Test with json fences
-  - [ ] Test fallback when no fences
-- [ ] Unit test: Agent message routing
-  - [ ] Test redirect actor stack behavior
-  - [ ] Test PushThinker/PopThinker operations
+- [x] Unit test: Code fence extraction
+  - [x] Test with text fences
+  - [x] Test with json fences
+  - [x] Test fallback when no fences
+- [ ] Unit test: Agent message routing (requires mock SACP - deferred)
 
 ---
 
@@ -486,7 +478,7 @@ Build an ACP proxy that interprets Patchwork code in real-time, enabling a "supe
 **Phase 1 Complete**: Proxy runs in conductor, detects code, logs AST, forwards prompts ✅
 **Phase 2 Complete**: Deterministic demo works (loops, file I/O, shell commands) ✅
 **Phase 3 Complete**: Evaluation uses `Result<Value, Error>`, ready for threading ✅
-**Phase 4 Complete**: Agent infrastructure built, can create sessions and send prompts
+**Phase 4 Complete**: Agent infrastructure built, can create sessions and send prompts ✅
 **Phase 5 Complete**: Interpreter threads block on agent, think blocks work end-to-end
 **Phase 6 Complete**: Production-ready with robust errors, docs, and tests
 
