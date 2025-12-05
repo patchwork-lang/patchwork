@@ -398,11 +398,17 @@ The interpreter runs on blocking threads using `std::sync::mpsc` channels, while
   - [x] Route `SessionNotification` to redirect actor
   - [x] Enabled LLM streaming response accumulation
 
-- [ ] Test full demo manually
-  - [ ] Run through Zed with real LLM
-  - [ ] Verify sanitized transcripts generated
-  - [ ] Verify output quality
+- [x] Test full demo manually
+  - [x] Run through Zed with real LLM
+  - [x] Both interviews processed successfully
+  - [x] Think blocks sent prompts and received streaming responses
+  - [ ] Verify sanitized transcripts generated correctly
   - [ ] Test error handling (missing files, etc.)
+
+- [ ] Fix print() output routing
+  - [ ] print() currently writes to stdout which breaks JSON-RPC protocol
+  - [ ] Redirect to stderr or route through agent notification system
+  - [ ] Consider adding session context to print() for proper ACP notifications
 
 ### Error Handling
 

@@ -8,15 +8,14 @@
 //!
 //! ## Architecture
 //!
-//! The interpreter runs on blocking threads using `std::sync::mpsc` channels.
-//! The Agent runs in async tokio land. This module bridges these two worlds:
+//! The interpreter sends ThinkRequests via tokio's UnboundedSender (non-blocking).
+//! The agent runs in async land and receives via UnboundedReceiver.
 //!
-//! 1. Interpreter sends `ThinkRequest` via `std::sync::mpsc` (from patchwork_eval)
-//! 2. Bridge task receives these and forwards to async agent processing
+//! 1. Interpreter sends `ThinkRequest` via tokio `UnboundedSender` (non-blocking)
+//! 2. Agent receives via `UnboundedReceiver` in with_client main loop
 //! 3. Agent creates LLM sessions and accumulates responses
 //! 4. Results are sent back via `ThinkResponse` on `std::sync::mpsc`
 
-use std::sync::mpsc as std_mpsc;
 use std::sync::Arc;
 
 use sacp::schema::{
@@ -24,12 +23,11 @@ use sacp::schema::{
     SessionNotification, SessionUpdate, StopReason,
 };
 use sacp::JrConnectionCx;
-use sacp_proxy::{McpServer, McpServiceRegistry};
+use sacp_proxy::{JrCxExt, McpServer, McpServiceRegistry};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{channel, unbounded_channel, Sender, UnboundedReceiver, UnboundedSender};
-use tokio::sync::oneshot;
-use tokio::sync::Mutex;
+use tokio::sync::{oneshot, Mutex};
 
 use patchwork_eval::{AgentHandle, ThinkRequest, ThinkResponse, Value};
 
@@ -78,21 +76,25 @@ pub struct AgentState {
     pub mcp_registry: McpServiceRegistry,
 }
 
-/// Create an agent that bridges blocking interpreter threads to async LLM sessions.
+/// Create an agent that bridges the interpreter to async LLM sessions.
 ///
 /// Returns:
 /// - `AgentHandle` - Pass this to the interpreter for think blocks
 /// - `UnboundedSender<RedirectMessage>` - For routing session notifications
+/// - `UnboundedReceiver<ThinkRequest>` - The receiver for the bridge loop
 ///
-/// This spawns background tasks:
-/// - Bridge task: Receives `ThinkRequest` from std::sync::mpsc and processes in async
-/// - Redirect actor: Routes messages to active think sessions
+/// The caller must run the bridge loop in with_client's main_fn.
 pub fn create_agent(
     cx: JrConnectionCx,
     mcp_registry: McpServiceRegistry,
-) -> (AgentHandle, UnboundedSender<RedirectMessage>) {
-    // Create the std::sync channel that the interpreter will use
-    let (std_tx, std_rx) = std_mpsc::channel::<ThinkRequest>();
+) -> (
+    AgentHandle,
+    UnboundedSender<RedirectMessage>,
+    UnboundedReceiver<ThinkRequest>,
+    Arc<AgentState>,
+) {
+    // Create the tokio channel for think requests (non-blocking send from sync code)
+    let (request_tx, request_rx) = unbounded_channel::<ThinkRequest>();
 
     // Create the redirect channel
     let (redirect_tx, redirect_rx) = unbounded_channel();
@@ -103,61 +105,23 @@ pub fn create_agent(
         mcp_registry,
     });
 
-    // Spawn the redirect actor
-    tokio::spawn(redirect_actor(redirect_rx));
-
-    // Spawn the bridge task that receives from std::sync::mpsc
-    tokio::spawn(bridge_task(cx, std_rx, state));
+    // Spawn redirect actor via cx.spawn() - it doesn't need to call block_task()
+    if let Err(e) = cx.spawn(async move {
+        redirect_actor(redirect_rx).await;
+        Ok(())
+    }) {
+        tracing::error!("Failed to spawn redirect actor: {}", e);
+    }
 
     // Create the AgentHandle for the interpreter
-    let handle = AgentHandle::new(std_tx);
+    let handle = AgentHandle::new(request_tx);
 
-    (handle, redirect_tx)
+    (handle, redirect_tx, request_rx, state)
 }
 
-/// Bridge task that receives ThinkRequests from blocking channel and processes them async.
-async fn bridge_task(
-    cx: JrConnectionCx,
-    std_rx: std_mpsc::Receiver<ThinkRequest>,
-    state: Arc<AgentState>,
-) {
-    // Wrap the receiver in Arc<std::sync::Mutex> for use across blocking tasks
-    let std_rx = Arc::new(std::sync::Mutex::new(std_rx));
-
-    // Use tokio::task::spawn_blocking to receive from std::sync::mpsc
-    loop {
-        let cx = cx.clone();
-        let state = state.clone();
-        let std_rx = std_rx.clone();
-
-        // Receive from the blocking channel in a blocking task
-        let request = match tokio::task::spawn_blocking(move || {
-            let rx = std_rx.lock().unwrap();
-            rx.recv()
-        })
-        .await
-        {
-            Ok(Ok(request)) => request,
-            Ok(Err(_)) => {
-                // Channel closed - interpreter has shut down
-                tracing::info!("Agent bridge: interpreter channel closed");
-                break;
-            }
-            Err(e) => {
-                tracing::error!("Agent bridge: spawn_blocking error: {}", e);
-                break;
-            }
-        };
-
-        // Process the request in an async task
-        tokio::spawn(async move {
-            process_think_request(cx, request, state).await;
-        });
-    }
-}
 
 /// Process a single think request from the interpreter.
-async fn process_think_request(cx: JrConnectionCx, request: ThinkRequest, state: Arc<AgentState>) {
+pub async fn process_think_request(cx: JrConnectionCx, request: ThinkRequest, state: Arc<AgentState>) -> Result<(), sacp::Error> {
     let ThinkRequest {
         prompt,
         bindings: _,
@@ -170,6 +134,8 @@ async fn process_think_request(cx: JrConnectionCx, request: ThinkRequest, state:
 
     // Send the Complete response
     let _ = response_tx.send(ThinkResponse::Complete { result });
+
+    Ok(())
 }
 
 /// The redirect actor maintains a stack of active thinkers and routes messages.
@@ -219,10 +185,18 @@ async fn think_message(
         .add_registered_mcp_servers_to(&mut new_session);
 
     // Start a new session with the successor agent (e.g., claude-code-acp)
-    let session_result = cx.send_request(new_session).block_task().await;
-
+    // This uses block_task().await directly because think_message is spawned via cx.spawn(),
+    // so it's part of the connection's event loop and can receive responses.
+    tracing::info!("THINK_MSG: about to send session/new to successor");
+    let response_future = cx.send_request_to_successor(new_session);
+    tracing::info!("THINK_MSG: request future created, now calling block_task()");
+    let session_result = response_future.block_task().await;
+    tracing::info!("THINK_MSG: block_task() RETURNED! is_ok={:?}", session_result.is_ok());
     let NewSessionResponse { session_id, .. } = match session_result {
-        Ok(resp) => resp,
+        Ok(resp) => {
+            tracing::info!("think_message: got session_id={}", resp.session_id);
+            resp
+        }
         Err(e) => return Err(format!("Failed to create session: {}", e)),
     };
 
@@ -235,10 +209,12 @@ async fn think_message(
     {
         return Err("Redirect actor not running".to_string());
     }
+    tracing::info!("think_message: pushed thinker onto stack");
 
     // Send the prompt request to the successor
+    tracing::info!("think_message: sending prompt to successor for session {}", session_id);
     let prompt_result = cx
-        .send_request(PromptRequest {
+        .send_request_to_successor(PromptRequest {
             session_id: session_id.clone(),
             prompt: vec![augmented_prompt.into()],
             meta: None,

@@ -9,6 +9,7 @@ patchwork-parser = { path = "../patchwork-parser" }
 
 serde_json = "1.0"
 thiserror = "2.0"
+tokio = { version = "1", features = ["sync"] }
 
 [dev-dependencies]
 tempfile = "3"

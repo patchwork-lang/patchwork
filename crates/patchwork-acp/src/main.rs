@@ -85,6 +85,10 @@ fn extract_prompt_text(request: &PromptRequest) -> Option<String> {
 }
 
 /// Handle a prompt request, checking for Patchwork code.
+///
+/// IMPORTANT: This handler must NOT block! If we await on long-running work,
+/// we block incoming_protocol_actor which prevents responses from being dispatched.
+/// Instead, we spawn the evaluation as a separate task and return immediately.
 async fn handle_prompt(
     proxy: Arc<Mutex<PatchworkProxy>>,
     request: PromptRequest,
@@ -116,9 +120,9 @@ async fn handle_prompt(
 
     // Check for active evaluation and get agent handle
     let agent_handle = {
-        let proxy = proxy.lock().unwrap();
+        let proxy_guard = proxy.lock().unwrap();
 
-        if proxy.has_active_evaluation(&session_id) {
+        if proxy_guard.has_active_evaluation(&session_id) {
             // Already evaluating, return error
             cx.respond_with_error(
                 sacp::Error::invalid_request()
@@ -127,15 +131,34 @@ async fn handle_prompt(
             return Ok(());
         }
 
-        proxy.agent_handle()
+        proxy_guard.agent_handle()
     };
 
     // Mark session as active
     {
-        let mut proxy = proxy.lock().unwrap();
-        proxy.start_evaluation(&session_id);
+        let mut proxy_guard = proxy.lock().unwrap();
+        proxy_guard.start_evaluation(&session_id);
     }
 
+    // CRITICAL: Spawn the evaluation as a separate task to avoid blocking
+    // the incoming_protocol_actor. If we block here, responses from our
+    // think blocks won't be dispatched, causing a deadlock.
+    let connection_cx = cx.connection_cx().clone();
+    connection_cx.spawn(run_patchwork_evaluation(proxy, session_id, text, agent_handle, cx))?;
+
+    Ok(())
+}
+
+/// Run Patchwork evaluation in a spawned task.
+///
+/// This runs as a separate task so it doesn't block the message processing loop.
+async fn run_patchwork_evaluation(
+    proxy: Arc<Mutex<PatchworkProxy>>,
+    session_id: String,
+    text: String,
+    agent_handle: Option<AgentHandle>,
+    cx: JrRequestCx<PromptResponse>,
+) -> Result<(), sacp::Error> {
     // Create interpreter with agent handle
     let mut interp = match agent_handle {
         Some(handle) => Interpreter::with_agent(handle),
@@ -143,17 +166,14 @@ async fn handle_prompt(
     };
 
     // Evaluate on a blocking thread since interpreter may block on channels
-    let eval_result = {
-        let text = text.clone();
-        tokio::task::spawn_blocking(move || interp.eval(&text))
-            .await
-            .map_err(|e| sacp::Error::internal_error().with_data(format!("Task error: {}", e)))?
-    };
+    let eval_result = tokio::task::spawn_blocking(move || interp.eval(&text))
+        .await
+        .map_err(|e| sacp::Error::internal_error().with_data(format!("Task error: {}", e)))?;
 
     // End the evaluation regardless of result
     {
-        let mut proxy = proxy.lock().unwrap();
-        proxy.end_evaluation(&session_id);
+        let mut proxy_guard = proxy.lock().unwrap();
+        proxy_guard.end_evaluation(&session_id);
     }
 
     match eval_result {
@@ -222,8 +242,6 @@ async fn main() -> anyhow::Result<()> {
         .on_receive_request(move |request: PromptRequest, cx: JrRequestCx<PromptResponse>| {
             let proxy = Arc::clone(&proxy_clone);
             async move {
-                // Create agent on first request if not already created
-                ensure_agent_created(&proxy, cx.connection_cx().clone());
                 handle_prompt(proxy, request, cx).await
             }
         })
@@ -245,19 +263,33 @@ async fn main() -> anyhow::Result<()> {
             tokio::io::stdout().compat_write(),
             tokio::io::stdin().compat(),
         ))?
-        .serve()
+        .with_client({
+            let proxy_for_client = Arc::clone(&proxy);
+            async move |cx| {
+                // Create the agent components
+                let mcp_registry = McpServiceRegistry::default();
+                let (agent_handle, redirect_tx, mut request_rx, state) =
+                    agent::create_agent(cx.clone(), mcp_registry);
+
+                // Store in proxy so handle_prompt can access it
+                {
+                    let mut proxy = proxy_for_client.lock().unwrap();
+                    proxy.set_agent(agent_handle, redirect_tx);
+                }
+
+                tracing::info!("Agent created, running main loop");
+
+                // Main loop: receive ThinkRequests and spawn handlers
+                // This runs as the client's main logic, integrated with the connection's event loop
+                while let Some(request) = request_rx.recv().await {
+                    tracing::info!("Received ThinkRequest, spawning handler");
+                    cx.spawn(agent::process_think_request(cx.clone(), request, state.clone()))?;
+                }
+
+                Ok(())
+            }
+        })
         .await?;
 
     Ok(())
-}
-
-/// Ensure the agent is created (lazily, on first request).
-fn ensure_agent_created(proxy: &Arc<Mutex<PatchworkProxy>>, cx: sacp::JrConnectionCx) {
-    let mut proxy = proxy.lock().unwrap();
-    if proxy.agent_handle.is_none() {
-        let mcp_registry = McpServiceRegistry::default();
-        let (agent_handle, redirect_tx) = agent::create_agent(cx, mcp_registry);
-        proxy.set_agent(agent_handle, redirect_tx);
-        tracing::info!("Agent created and connected to successor");
-    }
 }
