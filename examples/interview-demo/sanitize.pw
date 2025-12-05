@@ -1,23 +1,22 @@
 {
-  for var interview in ($ ls -1 ./) {
-    if interview != "sanitize.pw" {
-      var metadata = read("$interview/metadata.json")
-      var { interviewees, interviewer, date, url } = json(metadata)
-      var transcript = read("$interview/transcript.txt")
-      var sanitized: string = think {
-        The following is a transcript of an interview about the
-        Rust programming language on ${date}. The interviewer is ${interviewer}
-        and the interviewees are $@{interviewees}.
+  for var interview in ($ find . -type d -mindepth 1 -maxdepth 1) {
+    var metadata = read("$interview/metadata.json")
+    var { interviewees, interviewer, date, url } = json(metadata)
+    var transcript = read("$interview/transcript.txt")
+    var sanitized: string = think {
+      The following is a transcript of an interview about the
+      Rust programming language on ${date}. The interviewer is ${interviewer}
+      and the interviewees are $@{interviewees}.
 
-        <transcript>
-        ${transcript}
-        </transcript>
+      <transcript>
+      ${transcript}
+      </transcript>
 
-        Read the transcript, correct misspellings of the participants' names,
-        and remove filler words like "um", "uh", "like", and "you know".
-      }
-      write("$interview/sanitized.txt", sanitized)
-      print("Processed $interview")
+      Read the transcript, correct misspellings of the participants' names,
+      and remove filler words like "um", "uh", "like", and "you know".
     }
+    write("$interview/sanitized.txt", sanitized)
+    print("Processed $interview\n\n")
   }
+  print("Done\n\n")
 }

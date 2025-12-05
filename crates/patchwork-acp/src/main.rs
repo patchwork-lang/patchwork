@@ -9,14 +9,17 @@ mod agent;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use sacp::schema::{ContentBlock, PromptRequest, PromptResponse, SessionNotification, StopReason};
-use sacp::{JrHandlerChain, JrRequestCx};
+use sacp::schema::{
+    ContentBlock, ContentChunk, PromptRequest, PromptResponse, SessionNotification, SessionUpdate,
+    StopReason, TextContent,
+};
+use sacp::{JrConnectionCx, JrHandlerChain, JrRequestCx};
 use sacp_proxy::{AcpProxyExt, JrCxExt, McpServiceRegistry};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing_subscriber::EnvFilter;
 
-use patchwork_eval::{AgentHandle, Error as EvalError, Interpreter};
+use patchwork_eval::{AgentHandle, Error as EvalError, Interpreter, PrintSink};
 
 use crate::agent::{PerSessionMessage, RedirectMessage};
 
@@ -65,11 +68,30 @@ impl PatchworkProxy {
     }
 }
 
-/// Check if a message appears to be Patchwork code.
+/// Check if a message appears to be Patchwork code or shell shorthand.
 ///
-/// Patchwork code is identified by starting with `{` (after trimming whitespace).
-fn is_patchwork_code(text: &str) -> bool {
-    text.trim_start().starts_with('{')
+/// Returns the code to execute if this is Patchwork input, None otherwise.
+/// - Starting with `{` → block mode (code passed through)
+/// - Starting with `$` → shell shorthand (wrapped in print block)
+fn detect_patchwork_input(text: &str) -> Option<String> {
+    let trimmed = text.trim_start();
+
+    if trimmed.starts_with('{') {
+        // Block mode - pass through as-is
+        Some(text.to_string())
+    } else if trimmed.starts_with('$') {
+        // Shell shorthand - wrap in print block
+        let command = trimmed[1..].trim_start(); // Remove $ and any following whitespace
+        Some(format!(
+            r#"{{
+  var output = ($ {})
+  print("```\n${{output}}```\n")
+}}"#,
+            command
+        ))
+    } else {
+        None
+    }
 }
 
 /// Extract the text content from a prompt request.
@@ -106,17 +128,17 @@ async fn handle_prompt(
         return Ok(());
     };
 
-    // Check if it's Patchwork code
-    if !is_patchwork_code(&text) {
-        // Not code, forward unchanged
+    // Check if it's Patchwork code or shell shorthand
+    let Some(code) = detect_patchwork_input(&text) else {
+        // Not Patchwork input, forward unchanged
         tracing::debug!("Not Patchwork code, forwarding");
         cx.connection_cx()
             .send_request_to_successor(request)
             .forward_to_request_cx(cx)?;
         return Ok(());
-    }
+    };
 
-    tracing::info!("Detected Patchwork code, executing...");
+    tracing::info!("Detected Patchwork input, executing...");
 
     // Check for active evaluation and get agent handle
     let agent_handle = {
@@ -144,7 +166,7 @@ async fn handle_prompt(
     // the incoming_protocol_actor. If we block here, responses from our
     // think blocks won't be dispatched, causing a deadlock.
     let connection_cx = cx.connection_cx().clone();
-    connection_cx.spawn(run_patchwork_evaluation(proxy, session_id, text, agent_handle, cx))?;
+    connection_cx.spawn(run_patchwork_evaluation(proxy, session_id, code, agent_handle, cx))?;
 
     Ok(())
 }
@@ -159,16 +181,31 @@ async fn run_patchwork_evaluation(
     agent_handle: Option<AgentHandle>,
     cx: JrRequestCx<PromptResponse>,
 ) -> Result<(), sacp::Error> {
-    // Create interpreter with agent handle
+    // Create a channel for print output
+    let (print_tx, print_rx): (PrintSink, std::sync::mpsc::Receiver<String>) =
+        std::sync::mpsc::channel();
+
+    // Create interpreter with agent handle and print sink
     let mut interp = match agent_handle {
         Some(handle) => Interpreter::with_agent(handle),
         None => Interpreter::new(),
     };
+    interp.set_print_sink(print_tx);
+
+    // Spawn a task to forward print messages as notifications
+    let connection_cx = cx.connection_cx().clone();
+    let session_id_for_prints = session_id.clone();
+    let print_forwarder = tokio::task::spawn_blocking(move || {
+        forward_prints_to_notifications(print_rx, &connection_cx, &session_id_for_prints)
+    });
 
     // Evaluate on a blocking thread since interpreter may block on channels
     let eval_result = tokio::task::spawn_blocking(move || interp.eval(&text))
         .await
         .map_err(|e| sacp::Error::internal_error().with_data(format!("Task error: {}", e)))?;
+
+    // Wait for print forwarder to complete (it will finish when print_tx is dropped)
+    let _ = print_forwarder.await;
 
     // End the evaluation regardless of result
     {
@@ -203,6 +240,37 @@ async fn run_patchwork_evaluation(
     }
 
     Ok(())
+}
+
+/// Forward print messages from the interpreter to ACP notifications.
+///
+/// This runs in a blocking context and sends each print as an AgentMessageChunk.
+fn forward_prints_to_notifications(
+    rx: std::sync::mpsc::Receiver<String>,
+    connection_cx: &JrConnectionCx,
+    session_id: &str,
+) {
+    while let Ok(message) = rx.recv() {
+        tracing::debug!("Forwarding print output: {}", message);
+
+        let notification = SessionNotification {
+            session_id: session_id.to_string().into(),
+            update: SessionUpdate::AgentMessageChunk(ContentChunk {
+                content: ContentBlock::Text(TextContent {
+                    annotations: None,
+                    text: message,
+                    meta: None,
+                }),
+                meta: None,
+            }),
+            meta: None,
+        };
+
+        if let Err(e) = connection_cx.send_notification(notification) {
+            tracing::warn!("Failed to send print notification: {}", e);
+            break;
+        }
+    }
 }
 
 /// Create a simple text response.

@@ -2,19 +2,25 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::mpsc::Sender;
 
 use crate::value::Value;
+
+/// A sink for print output, allowing redirection away from stdout.
+pub type PrintSink = Sender<String>;
 
 /// The runtime environment for executing Patchwork code.
 ///
 /// Holds variable bindings and execution context like the working directory.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Runtime {
     /// Variable bindings, organized as a stack of scopes.
     /// Inner vec is the most recent scope, outer vec contains parent scopes.
     scopes: Vec<HashMap<String, Value>>,
     /// Current working directory for file operations and shell commands.
     working_dir: PathBuf,
+    /// Optional sink for print output. If None, prints go to stdout.
+    print_sink: Option<PrintSink>,
 }
 
 impl Runtime {
@@ -23,6 +29,33 @@ impl Runtime {
         Self {
             scopes: vec![HashMap::new()],
             working_dir,
+            print_sink: None,
+        }
+    }
+
+    /// Create a new runtime with a print sink for output redirection.
+    pub fn with_print_sink(working_dir: PathBuf, print_sink: PrintSink) -> Self {
+        Self {
+            scopes: vec![HashMap::new()],
+            working_dir,
+            print_sink: Some(print_sink),
+        }
+    }
+
+    /// Set the print sink for output redirection.
+    pub fn set_print_sink(&mut self, sink: PrintSink) {
+        self.print_sink = Some(sink);
+    }
+
+    /// Send a print message to the sink, or stdout if no sink is configured.
+    ///
+    /// Returns Ok(()) on success, or Err if the channel is disconnected.
+    pub fn print(&self, message: String) -> Result<(), String> {
+        if let Some(ref sink) = self.print_sink {
+            sink.send(message).map_err(|e| format!("Print channel disconnected: {}", e))
+        } else {
+            println!("{}", message);
+            Ok(())
         }
     }
 
@@ -90,7 +123,11 @@ impl Runtime {
 
 impl Default for Runtime {
     fn default() -> Self {
-        Self::new(std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")))
+        Self {
+            scopes: vec![HashMap::new()],
+            working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
+            print_sink: None,
+        }
     }
 }
 

@@ -1,26 +1,26 @@
 {
-  "current_focus": "Phase 6: Full Demo and Polish - think blocks working end-to-end",
+  "current_focus": "Phase 6 polish complete - print routing and shell shorthand working",
   "recent_decisions": [
-    "Fixed critical deadlock by spawning Patchwork evaluation via cx.spawn() instead of blocking in handler",
-    "Switched from std::sync::mpsc to tokio::sync::mpsc for think requests (following threadbare pattern)",
-    "Handler must not await on long-running work - blocks incoming_protocol_actor and prevents response dispatch"
+    "Route print() output through ACP SessionNotification::AgentMessageChunk for streaming to client",
+    "Add escape sequence processing in eval.rs for \\n, \\t, \\r, etc.",
+    "Add shell shorthand: $ command expands to wrapped print block with markdown code fence"
   ],
-  "active_threads": [
-    "Manual testing with interview sanitization demo complete",
-    "print() output routing needs fix - currently breaks JSON-RPC protocol"
-  ],
+  "active_threads": [],
   "key_insights": [
-    "SACP handlers run inside incoming_protocol_actor - awaiting blocks all message processing including responses",
-    "cx.spawn() runs tasks in task_actor which runs concurrently via select_biased!",
-    "Trace logging revealed response was received but never dispatched - led to deadlock diagnosis"
+    "std::sync::mpsc channel bridges blocking interpreter to async notification system",
+    "Lexer has bug with trailing \\\\ before closing quote - escapes the quote",
+    "Shell shorthand provides quick command execution without full block syntax"
   ],
   "collaboration_patterns": {
-    "debugging_approach": "Systematic trace logging to understand message flow before attempting fixes",
-    "architecture_reference": "Niko's threadbare as canonical example of correct patterns"
+    "iterative_polish": "User testing in Zed reveals issues like escape sequences not working"
   },
   "project_state": {
     "phase": "Phase 6 - Demo and Polish",
-    "blocking_issues": ["print() writes to stdout breaking JSON-RPC"],
-    "ready_for": ["Verifying sanitized transcript output quality", "Documentation"]
+    "completed_features": [
+      "print() streams to ACP client",
+      "Escape sequences (\\n, \\t, etc.) work in strings",
+      "Shell shorthand ($ command) for quick execution"
+    ],
+    "known_issues": ["Lexer bug: trailing \\\\ before closing quote"]
   }
 }

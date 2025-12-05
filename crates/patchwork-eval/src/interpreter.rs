@@ -10,7 +10,7 @@ use patchwork_parser::ast::{Expr, Statement};
 use crate::agent::AgentHandle;
 use crate::error::Error;
 use crate::eval;
-use crate::runtime::Runtime;
+use crate::runtime::{PrintSink, Runtime};
 use crate::value::Value;
 
 /// The Patchwork interpreter.
@@ -74,6 +74,13 @@ impl Interpreter {
     /// Get a reference to the agent handle, if present.
     pub fn agent(&self) -> Option<&AgentHandle> {
         self.agent.as_ref()
+    }
+
+    /// Set a print sink for redirecting print() output.
+    ///
+    /// When set, all print() calls will send to this channel instead of stdout.
+    pub fn set_print_sink(&mut self, sink: PrintSink) {
+        self.runtime.set_print_sink(sink);
     }
 
     /// Evaluate Patchwork code.
@@ -436,6 +443,57 @@ mod tests {
             assert_eq!(s, "Hello world!");
         } else {
             panic!("Expected String(\"Hello world!\"), got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_string_escape_sequences() {
+        let mut interp = Interpreter::new();
+        let code = r#"{
+            var msg = "Line1\nLine2\tTabbed"
+            msg
+        }"#;
+        let result = interp.eval(code);
+        assert!(result.is_ok(), "Eval failed: {:?}", result);
+        if let Ok(Value::String(s)) = result {
+            assert_eq!(s, "Line1\nLine2\tTabbed");
+            assert!(s.contains('\n'), "Should contain newline");
+            assert!(s.contains('\t'), "Should contain tab");
+        } else {
+            panic!("Expected String with escapes, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_string_escaped_quotes() {
+        let mut interp = Interpreter::new();
+        let code = r#"{
+            var msg = "He said \"hello\" there"
+            msg
+        }"#;
+        let result = interp.eval(code);
+        assert!(result.is_ok(), "Eval failed: {:?}", result);
+        if let Ok(Value::String(s)) = result {
+            assert_eq!(s, "He said \"hello\" there");
+        } else {
+            panic!("Expected String with escaped quotes, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_string_escaped_backslash() {
+        let mut interp = Interpreter::new();
+        // Note: trailing \\ before closing " has a lexer bug, so test mid-string
+        let code = r#"{
+            var msg = "path\\to\\file"
+            msg
+        }"#;
+        let result = interp.eval(code);
+        assert!(result.is_ok(), "Eval failed: {:?}", result);
+        if let Ok(Value::String(s)) = result {
+            assert_eq!(s, "path\\to\\file");
+        } else {
+            panic!("Expected String with backslashes, got {:?}", result);
         }
     }
 

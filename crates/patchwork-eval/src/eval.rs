@@ -359,7 +359,7 @@ fn eval_string_literal(
     let mut result = String::new();
     for part in &lit.parts {
         match part {
-            StringPart::Text(s) => result.push_str(s),
+            StringPart::Text(s) => result.push_str(&process_escape_sequences(s)),
             StringPart::Interpolation(expr) => {
                 let value = eval_expr(expr, runtime, agent)?;
                 result.push_str(&value.to_string_value());
@@ -367,6 +367,42 @@ fn eval_string_literal(
         }
     }
     Ok(Value::String(result))
+}
+
+/// Process escape sequences in a string literal.
+///
+/// Converts escape sequences like \n, \t, \\, \", \$ to their actual characters.
+fn process_escape_sequences(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some('\\') => result.push('\\'),
+                Some('"') => result.push('"'),
+                Some('\'') => result.push('\''),
+                Some('$') => result.push('$'),
+                Some('0') => result.push('\0'),
+                Some(other) => {
+                    // Unknown escape - keep as-is (or could error)
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => {
+                    // Trailing backslash - keep it
+                    result.push('\\');
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 /// Evaluate a think or ask block.
@@ -607,14 +643,15 @@ fn eval_builtin(name: &str, args: &[Value], runtime: &Runtime) -> Result<Value, 
         }
 
         "print" => {
-            // print(values...) - print to stdout
+            // print(values...) - print to output sink (or stdout if none)
+            let mut output = String::new();
             for (i, arg) in args.iter().enumerate() {
                 if i > 0 {
-                    print!(" ");
+                    output.push(' ');
                 }
-                print!("{}", arg.to_string_value());
+                output.push_str(&arg.to_string_value());
             }
-            println!();
+            runtime.print(output).map_err(Error::Runtime)?;
             Value::Null
         }
 
