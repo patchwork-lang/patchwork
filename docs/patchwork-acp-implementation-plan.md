@@ -405,10 +405,10 @@ The interpreter runs on blocking threads using `std::sync::mpsc` channels, while
   - [ ] Verify sanitized transcripts generated correctly
   - [ ] Test error handling (missing files, etc.)
 
-- [ ] Fix print() output routing
-  - [ ] print() currently writes to stdout which breaks JSON-RPC protocol
-  - [ ] Redirect to stderr or route through agent notification system
-  - [ ] Consider adding session context to print() for proper ACP notifications
+- [x] Fix print() output routing
+  - [x] print() currently writes to stdout which breaks JSON-RPC protocol
+  - [x] Redirect to stderr or route through agent notification system
+  - [x] Consider adding session context to print() for proper ACP notifications
 
 ### Error Handling
 
