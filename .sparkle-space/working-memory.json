@@ -1,26 +1,29 @@
 {
-  "current_focus": "Phase 6 polish complete - print routing and shell shorthand working",
+  "current_focus": "Architecture mdbook setup complete - Phase 1 done",
   "recent_decisions": [
-    "Route print() output through ACP SessionNotification::AgentMessageChunk for streaming to client",
-    "Add escape sequence processing in eval.rs for \\n, \\t, \\r, etc.",
-    "Add shell shorthand: $ command expands to wrapped print block with markdown code fence"
+    "Book title: 'Patchwork: Behind the Stitches'",
+    "9 chapters covering values, runtime, evaluator, think blocks, agent, ACP proxy",
+    "Using mermaid for diagrams following Niko's threadbare patterns",
+    "Prioritized chapters: must-have (intro, example, think blocks, agent) vs nice-to-have (nested thinks)"
   ],
   "active_threads": [],
   "key_insights": [
-    "std::sync::mpsc channel bridges blocking interpreter to async notification system",
-    "Lexer has bug with trailing \\\\ before closing quote - escapes the quote",
-    "Shell shorthand provides quick command execution without full block syntax"
+    "Niko's threadbare docs provide excellent template: concrete example before mechanics, separate perspectives",
+    "Scope limited to current architecture - no future features or compiler content"
   ],
   "collaboration_patterns": {
-    "iterative_polish": "User testing in Zed reveals issues like escape sequences not working"
+    "planning_first": "Created design doc and MVP plan before implementation"
   },
   "project_state": {
-    "phase": "Phase 6 - Demo and Polish",
+    "phase": "Architecture book - Phase 1 complete",
     "completed_features": [
-      "print() streams to ACP client",
-      "Escape sequences (\\n, \\t, etc.) work in strings",
-      "Shell shorthand ($ command) for quick execution"
+      "Design doc at docs/arch-mdbook-design.md",
+      "MVP plan at docs/arch-mdbook-mvp-plan.md", 
+      "mdbook initialized at docs/arch/",
+      "book.toml configured with mermaid",
+      "SUMMARY.md with all 9 chapters",
+      "Stub files for all chapters"
     ],
-    "known_issues": ["Lexer bug: trailing \\\\ before closing quote"]
+    "next_steps": ["Phase 2: Write foundation chapters (Introduction, Values, Runtime)"]
   }
 }
