@@ -1,29 +1,26 @@
 {
-  "current_focus": "Architecture mdbook setup complete - Phase 1 done",
+  "current_focus": "Architecture mdbook Phase 2 complete - foundation chapters written",
   "recent_decisions": [
-    "Book title: 'Patchwork: Behind the Stitches'",
-    "9 chapters covering values, runtime, evaluator, think blocks, agent, ACP proxy",
-    "Using mermaid for diagrams following Niko's threadbare patterns",
-    "Prioritized chapters: must-have (intro, example, think blocks, agent) vs nice-to-have (nested thinks)"
+    "Introduction includes architecture overview mermaid diagram",
+    "Values chapter has type hierarchy diagram and coercion tables",
+    "Runtime chapter explains scope stack, working dir, and print sink with sequence diagram"
   ],
   "active_threads": [],
   "key_insights": [
-    "Niko's threadbare docs provide excellent template: concrete example before mechanics, separate perspectives",
-    "Scope limited to current architecture - no future features or compiler content"
+    "Mermaid diagrams rendering correctly in mdbook",
+    "Following pattern of showing diagrams alongside code snippets"
   ],
   "collaboration_patterns": {
-    "planning_first": "Created design doc and MVP plan before implementation"
+    "incremental_progress": "Phase by phase with builds verified between"
   },
   "project_state": {
-    "phase": "Architecture book - Phase 1 complete",
+    "phase": "Architecture book - Phase 2 complete",
     "completed_features": [
-      "Design doc at docs/arch-mdbook-design.md",
-      "MVP plan at docs/arch-mdbook-mvp-plan.md", 
-      "mdbook initialized at docs/arch/",
-      "book.toml configured with mermaid",
-      "SUMMARY.md with all 9 chapters",
-      "Stub files for all chapters"
+      "Phase 1: Setup complete",
+      "Phase 2: Introduction chapter",
+      "Phase 2: Values chapter", 
+      "Phase 2: Runtime chapter"
     ],
-    "next_steps": ["Phase 2: Write foundation chapters (Introduction, Values, Runtime)"]
+    "next_steps": ["Phase 3: Example and Evaluator chapters"]
   }
 }

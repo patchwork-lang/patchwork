@@ -23,9 +23,9 @@ Implementation plan for the architecture book. Goal: explain the current archite
 
 ### Phase 2: Foundation Chapters
 
-- [ ] **Introduction** - Core idea, why the architecture matters, book overview
-- [ ] **The Value System** - `Value` enum, JSON interop, type coercion
-- [ ] **The Runtime** - Scopes, working directory, PrintSink
+- [x] **Introduction** - Core idea, why the architecture matters, book overview
+- [x] **The Value System** - `Value` enum, JSON interop, type coercion
+- [x] **The Runtime** - Scopes, working directory, PrintSink
 
 ### Phase 3: Execution Chapters
 
