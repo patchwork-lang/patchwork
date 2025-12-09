@@ -34,8 +34,8 @@ Implementation plan for the architecture book. Goal: explain the current archite
 
 ### Phase 4: LLM Integration Chapters
 
-- [ ] **Think Blocks** - `eval_think_block`, channel architecture, blocking semantics
-- [ ] **The Agent** - `AgentHandle`, redirect actor, `think_message` flow
+- [x] **Think Blocks** - `eval_think_block`, channel architecture, blocking semantics
+- [x] **The Agent** - `AgentHandle`, redirect actor, `think_message` flow
 
 ### Phase 5: Integration Chapter
 
