@@ -47,9 +47,9 @@ let json = value.to_json();  // Pretty-printed
 
 This is used by the `json()` and `cat()` builtin functions:
 
-```
+```patchwork
 var data = json(read("config.json"))  // Parse file as JSON
-var output = cat(data)                 // Serialize back to JSON string
+var output = cat(data)                // Serialize back to JSON string
 ```
 
 ## Type Coercion
@@ -80,7 +80,7 @@ Values support coercion to strings and booleans for use in string interpolation 
 
 This powers conditionals and loops:
 
-```
+```patchwork
 var items = json(read("data.json"))
 if items {  // truthy if non-empty array
     for var item in items {

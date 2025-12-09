@@ -52,7 +52,7 @@ pub fn get_var(&self, name: &str) -> Option<&Value> {
 
 ### Shadowing Example
 
-```
+```patchwork
 var x = 1
 {
     var x = 2      // shadows outer x
