@@ -101,7 +101,7 @@ pub struct ThinkRequest {
 }
 ```
 
-The `response_tx` is created fresh for each think block, so responses are routed back to the correct waiting interpreter.
+The `response_tx` is created fresh for each think block, so responses are routed back to the correct waiting interpreter. This becomes important with nested think blocks, covered in a [later chapter](./nested-thinks.md).
 
 ### ThinkResponse
 

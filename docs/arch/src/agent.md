@@ -65,7 +65,7 @@ impl AgentHandle {
 }
 ```
 
-The handle is `Clone`, so it can be passed to multiple interpreter threads. Each call to `think()` creates a fresh response channel, so responses route to the correct waiter.
+The handle is `Clone`, so it can be passed to multiple interpreter threads. Each call to `think()` creates a fresh response channel, so responses route to the correct waiter. This matters for nested think blocks, where multiple think operations may be in flight simultaneously—we'll see how this works in the [Nested Think Blocks](./nested-thinks.md) chapter.
 
 ## The Redirect Actor
 
