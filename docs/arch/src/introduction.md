@@ -12,7 +12,7 @@ Patchwork programs interleave two kinds of computation:
 The interesting part: a think block can trigger deterministic code (via tool calls), and that code might itself contain think blocks. This creates a recursive interplay between the interpreter and the LLM.
 
 ```
-skill analyze_document(doc) {
+fun analyze_document(doc) {
     var category = think {
         Categorize this document: $doc
         Options: RECEIPT, CONTRACT, PERSONAL

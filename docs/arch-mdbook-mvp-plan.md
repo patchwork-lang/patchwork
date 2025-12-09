@@ -29,8 +29,8 @@ Implementation plan for the architecture book. Goal: explain the current archite
 
 ### Phase 3: Execution Chapters
 
-- [ ] **An Example Program** - Concrete Patchwork code before diving into mechanics
-- [ ] **The Evaluator** - `eval_expr`, `eval_statement`, `eval_block`, exceptions
+- [x] **An Example Program** - Concrete Patchwork code before diving into mechanics
+- [x] **The Evaluator** - `eval_expr`, `eval_statement`, `eval_block`, exceptions
 
 ### Phase 4: LLM Integration Chapters
 
