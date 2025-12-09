@@ -102,11 +102,16 @@
     };
 
     // Think/ask blocks with prompt content
+    // In hljs 10.x, we use returnBegin + contains with the keyword
     const THINK_BLOCK = {
       begin: /\b(think|ask)\s*\{/,
       end: /\}/,
-      beginScope: { 1: 'keyword' },
+      returnBegin: true,
       contains: [
+        {
+          className: 'keyword',
+          begin: /\b(think|ask)\b/
+        },
         {
           className: 'subst',
           begin: /\$\{/,
@@ -127,10 +132,15 @@
           // Nested do { } blocks return to code mode
           begin: /\bdo\s*\{/,
           end: /\}/,
-          beginScope: 'keyword',
-          contains: ['self']
-        },
-        'self'
+          returnBegin: true,
+          contains: [
+            {
+              className: 'keyword',
+              begin: /\bdo\b/
+            },
+            'self'
+          ]
+        }
       ]
     };
 
