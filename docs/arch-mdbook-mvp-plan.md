@@ -52,7 +52,7 @@ Implementation plan for the architecture book. Goal: explain the current archite
 
 ### Phase 7: Advanced Chapter (Optional)
 
-- [ ] **Nested Think Blocks** - Stack-based routing, recursive interplay
+- [x] **Nested Think Blocks** - Stack-based routing, recursive interplay
   - Only include if time permits and the earlier chapters are solid
 
 ### Phase 8: Review
