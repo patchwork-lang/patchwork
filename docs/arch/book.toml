@@ -6,7 +6,7 @@ src = "src"
 
 [output.html]
 additional-css = []
-additional-js = ["mermaid.min.js", "mermaid-init.js"]
+additional-js = ["mermaid.min.js", "mermaid-init.js", "js/patchwork-highlight.js"]
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
