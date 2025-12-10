@@ -15,7 +15,7 @@ pub use agent::{AgentHandle, ThinkRequest, ThinkResponse};
 pub use error::Error;
 pub use eval::{eval_block, eval_expr, eval_statement};
 pub use interpreter::Interpreter;
-pub use runtime::{PrintSink, Runtime};
+pub use runtime::{PlanEntry, PlanEntryStatus, PlanReporter, PlanUpdate, PrintSink, Runtime};
 pub use value::Value;
 
 /// Result type for interpreter operations.

@@ -9,6 +9,33 @@ use crate::value::Value;
 /// A sink for print output, allowing redirection away from stdout.
 pub type PrintSink = Sender<String>;
 
+/// Status of a plan entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlanEntryStatus {
+    Pending,
+    InProgress,
+    Completed,
+}
+
+/// A single entry in the execution plan.
+#[derive(Debug, Clone)]
+pub struct PlanEntry {
+    /// Human-readable description of this task.
+    pub content: String,
+    /// Current execution status.
+    pub status: PlanEntryStatus,
+}
+
+/// A plan update message sent from the interpreter.
+#[derive(Debug, Clone)]
+pub struct PlanUpdate {
+    /// The complete list of plan entries (client replaces entire plan).
+    pub entries: Vec<PlanEntry>,
+}
+
+/// A sink for plan updates, allowing the ACP proxy to receive execution progress.
+pub type PlanReporter = Sender<PlanUpdate>;
+
 /// The runtime environment for executing Patchwork code.
 ///
 /// Holds variable bindings and execution context like the working directory.
@@ -21,6 +48,8 @@ pub struct Runtime {
     working_dir: PathBuf,
     /// Optional sink for print output. If None, prints go to stdout.
     print_sink: Option<PrintSink>,
+    /// Optional sink for plan updates. If None, no plan reporting.
+    plan_reporter: Option<PlanReporter>,
 }
 
 impl Runtime {
@@ -30,6 +59,7 @@ impl Runtime {
             scopes: vec![HashMap::new()],
             working_dir,
             print_sink: None,
+            plan_reporter: None,
         }
     }
 
@@ -39,12 +69,18 @@ impl Runtime {
             scopes: vec![HashMap::new()],
             working_dir,
             print_sink: Some(print_sink),
+            plan_reporter: None,
         }
     }
 
     /// Set the print sink for output redirection.
     pub fn set_print_sink(&mut self, sink: PrintSink) {
         self.print_sink = Some(sink);
+    }
+
+    /// Set the plan reporter for execution progress updates.
+    pub fn set_plan_reporter(&mut self, reporter: PlanReporter) {
+        self.plan_reporter = Some(reporter);
     }
 
     /// Send a print message to the sink, or stdout if no sink is configured.
@@ -56,6 +92,16 @@ impl Runtime {
         } else {
             println!("{}", message);
             Ok(())
+        }
+    }
+
+    /// Send a plan update to the reporter, if configured.
+    ///
+    /// Silently does nothing if no reporter is configured.
+    pub fn report_plan(&self, update: PlanUpdate) {
+        if let Some(ref reporter) = self.plan_reporter {
+            // Ignore errors - if the channel is disconnected, we just don't report
+            let _ = reporter.send(update);
         }
     }
 
@@ -127,6 +173,7 @@ impl Default for Runtime {
             scopes: vec![HashMap::new()],
             working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
             print_sink: None,
+            plan_reporter: None,
         }
     }
 }

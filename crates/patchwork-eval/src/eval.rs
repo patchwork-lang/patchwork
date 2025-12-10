@@ -17,7 +17,7 @@ use patchwork_parser::ast::{
 
 use crate::agent::{AgentHandle, ThinkResponse};
 use crate::error::Error;
-use crate::runtime::Runtime;
+use crate::runtime::{PlanEntry, PlanEntryStatus, PlanUpdate, Runtime};
 use crate::value::Value;
 
 /// Evaluate a complete program.
@@ -99,13 +99,59 @@ pub fn eval_statement(
                 }
             };
 
+            // Build the initial plan with all entries as pending
+            let item_strings: Vec<String> = items.iter()
+                .map(|v| v.to_string_value())
+                .collect();
+
+            // Report initial plan (all pending)
+            if !item_strings.is_empty() {
+                let entries: Vec<PlanEntry> = item_strings.iter()
+                    .map(|content| PlanEntry {
+                        content: content.clone(),
+                        status: PlanEntryStatus::Pending,
+                    })
+                    .collect();
+                runtime.report_plan(PlanUpdate { entries });
+            }
+
             let mut result = Value::Null;
-            for item in items {
+            for (index, item) in items.into_iter().enumerate() {
+                // Report: this item is now in_progress
+                if !item_strings.is_empty() {
+                    let entries: Vec<PlanEntry> = item_strings.iter()
+                        .enumerate()
+                        .map(|(i, content)| PlanEntry {
+                            content: content.clone(),
+                            status: if i < index {
+                                PlanEntryStatus::Completed
+                            } else if i == index {
+                                PlanEntryStatus::InProgress
+                            } else {
+                                PlanEntryStatus::Pending
+                            },
+                        })
+                        .collect();
+                    runtime.report_plan(PlanUpdate { entries });
+                }
+
                 runtime.push_scope();
                 runtime.define_var(var, item).map_err(Error::Runtime)?;
                 result = eval_block(body, runtime, agent)?;
                 runtime.pop_scope();
             }
+
+            // Report final plan (all completed)
+            if !item_strings.is_empty() {
+                let entries: Vec<PlanEntry> = item_strings.iter()
+                    .map(|content| PlanEntry {
+                        content: content.clone(),
+                        status: PlanEntryStatus::Completed,
+                    })
+                    .collect();
+                runtime.report_plan(PlanUpdate { entries });
+            }
+
             Ok(result)
         }
 

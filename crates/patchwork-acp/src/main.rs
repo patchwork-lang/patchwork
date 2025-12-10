@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use sacp::schema::{
-    ContentBlock, ContentChunk, PromptRequest, PromptResponse, SessionNotification, SessionUpdate,
-    StopReason, TextContent,
+    ContentBlock, ContentChunk, Plan, PlanEntry, PlanEntryPriority, PlanEntryStatus,
+    PromptRequest, PromptResponse, SessionNotification, SessionUpdate, StopReason, TextContent,
 };
 use sacp::{JrConnectionCx, JrHandlerChain, JrRequestCx};
 use sacp_proxy::{AcpProxyExt, JrCxExt, McpServiceRegistry};
@@ -19,7 +19,10 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing_subscriber::EnvFilter;
 
-use patchwork_eval::{AgentHandle, Error as EvalError, Interpreter, PrintSink};
+use patchwork_eval::{
+    AgentHandle, Error as EvalError, Interpreter,
+    PlanReporter, PlanUpdate as EvalPlanUpdate, PrintSink,
+};
 
 use crate::agent::{PerSessionMessage, RedirectMessage};
 
@@ -185,12 +188,17 @@ async fn run_patchwork_evaluation(
     let (print_tx, print_rx): (PrintSink, std::sync::mpsc::Receiver<String>) =
         std::sync::mpsc::channel();
 
-    // Create interpreter with agent handle and print sink
+    // Create a channel for plan updates
+    let (plan_tx, plan_rx): (PlanReporter, std::sync::mpsc::Receiver<EvalPlanUpdate>) =
+        std::sync::mpsc::channel();
+
+    // Create interpreter with agent handle, print sink, and plan reporter
     let mut interp = match agent_handle {
         Some(handle) => Interpreter::with_agent(handle),
         None => Interpreter::new(),
     };
     interp.set_print_sink(print_tx);
+    interp.set_plan_reporter(plan_tx);
 
     // Spawn a task to forward print messages as notifications
     let connection_cx = cx.connection_cx().clone();
@@ -199,13 +207,21 @@ async fn run_patchwork_evaluation(
         forward_prints_to_notifications(print_rx, &connection_cx, &session_id_for_prints)
     });
 
+    // Spawn a task to forward plan updates as notifications
+    let connection_cx_for_plans = cx.connection_cx().clone();
+    let session_id_for_plans = session_id.clone();
+    let plan_forwarder = tokio::task::spawn_blocking(move || {
+        forward_plan_updates_to_notifications(plan_rx, &connection_cx_for_plans, &session_id_for_plans)
+    });
+
     // Evaluate on a blocking thread since interpreter may block on channels
     let eval_result = tokio::task::spawn_blocking(move || interp.eval(&text))
         .await
         .map_err(|e| sacp::Error::internal_error().with_data(format!("Task error: {}", e)))?;
 
-    // Wait for print forwarder to complete (it will finish when print_tx is dropped)
+    // Wait for forwarders to complete (they will finish when channels are dropped)
     let _ = print_forwarder.await;
+    let _ = plan_forwarder.await;
 
     // End the evaluation regardless of result
     {
@@ -268,6 +284,52 @@ fn forward_prints_to_notifications(
 
         if let Err(e) = connection_cx.send_notification(notification) {
             tracing::warn!("Failed to send print notification: {}", e);
+            break;
+        }
+    }
+}
+
+/// Forward plan updates from the interpreter to ACP notifications.
+///
+/// This runs in a blocking context and sends each plan update as a SessionUpdate::Plan.
+fn forward_plan_updates_to_notifications(
+    rx: std::sync::mpsc::Receiver<EvalPlanUpdate>,
+    connection_cx: &JrConnectionCx,
+    session_id: &str,
+) {
+    while let Ok(update) = rx.recv() {
+        tracing::debug!("Forwarding plan update with {} entries", update.entries.len());
+
+        // Convert from eval's plan types to ACP schema types
+        let acp_entries: Vec<PlanEntry> = update
+            .entries
+            .into_iter()
+            .map(|entry| {
+                let status = match entry.status {
+                    patchwork_eval::PlanEntryStatus::Pending => PlanEntryStatus::Pending,
+                    patchwork_eval::PlanEntryStatus::InProgress => PlanEntryStatus::InProgress,
+                    patchwork_eval::PlanEntryStatus::Completed => PlanEntryStatus::Completed,
+                };
+                PlanEntry {
+                    content: entry.content,
+                    priority: PlanEntryPriority::Medium,
+                    status,
+                    meta: None,
+                }
+            })
+            .collect();
+
+        let notification = SessionNotification {
+            session_id: session_id.to_string().into(),
+            update: SessionUpdate::Plan(Plan {
+                entries: acp_entries,
+                meta: None,
+            }),
+            meta: None,
+        };
+
+        if let Err(e) = connection_cx.send_notification(notification) {
+            tracing::warn!("Failed to send plan notification: {}", e);
             break;
         }
     }

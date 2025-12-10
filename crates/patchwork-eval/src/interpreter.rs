@@ -10,7 +10,7 @@ use patchwork_parser::ast::{Expr, Statement};
 use crate::agent::AgentHandle;
 use crate::error::Error;
 use crate::eval;
-use crate::runtime::{PrintSink, Runtime};
+use crate::runtime::{PlanReporter, PrintSink, Runtime};
 use crate::value::Value;
 
 /// The Patchwork interpreter.
@@ -81,6 +81,13 @@ impl Interpreter {
     /// When set, all print() calls will send to this channel instead of stdout.
     pub fn set_print_sink(&mut self, sink: PrintSink) {
         self.runtime.set_print_sink(sink);
+    }
+
+    /// Set a plan reporter for execution progress updates.
+    ///
+    /// When set, for loops will report their progress to this channel.
+    pub fn set_plan_reporter(&mut self, reporter: PlanReporter) {
+        self.runtime.set_plan_reporter(reporter);
     }
 
     /// Evaluate Patchwork code.
@@ -537,5 +544,53 @@ mod tests {
             }
             other => panic!("Expected Exception, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_for_loop_plan_reporting() {
+        use crate::runtime::{PlanEntryStatus, PlanUpdate};
+        use std::sync::mpsc;
+
+        let (plan_tx, plan_rx) = mpsc::channel::<PlanUpdate>();
+        let mut interp = Interpreter::new();
+        interp.set_plan_reporter(plan_tx);
+
+        let code = r#"{
+            var items = ["a", "b", "c"]
+            for var item in items {
+                item
+            }
+        }"#;
+
+        let result = interp.eval(code);
+        assert!(result.is_ok(), "Eval failed: {:?}", result);
+
+        // Collect all plan updates
+        let updates: Vec<PlanUpdate> = plan_rx.try_iter().collect();
+
+        // Should have updates:
+        // 1. Initial (all pending)
+        // 2. First in_progress
+        // 3. Second in_progress (first completed)
+        // 4. Third in_progress (first two completed)
+        // 5. Final (all completed)
+        assert!(updates.len() >= 2, "Expected at least 2 plan updates, got {}", updates.len());
+
+        // Check first update has all pending
+        let first = &updates[0];
+        assert_eq!(first.entries.len(), 3);
+        assert!(first.entries.iter().all(|e| e.status == PlanEntryStatus::Pending),
+            "First update should have all Pending entries");
+
+        // Check last update has all completed
+        let last = updates.last().unwrap();
+        assert_eq!(last.entries.len(), 3);
+        assert!(last.entries.iter().all(|e| e.status == PlanEntryStatus::Completed),
+            "Last update should have all Completed entries");
+
+        // Check entry content matches loop items
+        assert_eq!(last.entries[0].content, "a");
+        assert_eq!(last.entries[1].content, "b");
+        assert_eq!(last.entries[2].content, "c");
     }
 }
