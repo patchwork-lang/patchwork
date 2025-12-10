@@ -1,0 +1,16 @@
+[book]
+title = "The Patchwork Manual"
+authors = ["David Herman"]
+language = "en"
+src = "src"
+
+[output.html]
+additional-css = []
+additional-js = ["mermaid.min.js", "mermaid-init.js", "js/patchwork-highlight.js"]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html.fold]
+enable = true
+level = 1
